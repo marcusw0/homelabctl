@@ -8,9 +8,23 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/marcusw0/homelabctl/check"
 )
+
+type Results struct {
+	StatusCode int
+	Subject string
+	Issuer string
+	Name string
+	Before string
+	After string
+	Target    string
+	Healthy   bool
+	Latency   time.Duration
+	CheckedAt time.Time
+}
 
 func httpRequest(target string) {
 	parsedURL, err := url.Parse(target)
@@ -29,11 +43,12 @@ func httpRequest(target string) {
 	}
 
 	fmt.Printf(
-		"Server: %s\nStatus: %d\nLatency: %dms\nHealthy: %t\n",
+		"Server: %s\nStatus: %d\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
 		parsedURL.Host,
 		result.StatusCode,
 		result.Latency.Milliseconds(),
 		result.Healthy,
+		result.CheckedAt.Local(),
 	)
 
 	if !result.Healthy {
@@ -44,19 +59,25 @@ func httpRequest(target string) {
 }
 
 func tcpRequest(target string) {
-	host, err := netip.ParseAddrPort(target)
+	_, err := netip.ParseAddrPort(target)
 	if err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}
 
-	fmt.Println(host, target)
-	result, err := check.CheckTCP(target)
+	ctx := context.Background()
+	result, err := check.CheckTCP(ctx, target)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("TCP result: %s\n", result)
+	fmt.Printf(
+		"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		result.Target,
+		result.Latency.Milliseconds(),
+		result.Healthy,
+		result.CheckedAt.Local(),
+	)
 	os.Exit(0)
 }
 
@@ -81,12 +102,15 @@ func tlsRequest(target string) {
 	}
 
 	fmt.Printf(
-		"Subject: %s\nIssuer: %s\nName: %s\nNotBefore: %s\nNotAfter: %s\n",
+		"Host: %s\nSubject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		result.Target,
 		result.Subject,
 		result.Issuer,
 		result.Name,
-		result.Before,
 		result.After,
+		result.Latency.Milliseconds(),
+		result.Healthy,
+		result.CheckedAt.Local(),
 	)
 
 	os.Exit(0)

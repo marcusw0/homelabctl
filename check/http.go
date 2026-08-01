@@ -10,15 +10,17 @@ import (
 
 // HTTPResult contains the useful parts of an HTTP health check.
 type HTTPResult struct {
+	Target    string
 	StatusCode int
-	Latency    time.Duration
-	Healthy    bool
+	Healthy   bool
+	Latency   time.Duration
+	CheckedAt time.Time
 	Body       string
 }
 
 // CheckHTTP requests target and reports whether it returned a 2xx status.
 func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cancel()
 	client, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
@@ -37,6 +39,7 @@ func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
 		StatusCode: resp.StatusCode,
 		Latency:    time.Since(start),
 		Healthy:    resp.StatusCode >= 200 && resp.StatusCode < 300,
+		CheckedAt: time.Now(),
 	}
 
 	if !result.Healthy {
