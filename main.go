@@ -8,23 +8,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/marcusw0/homelabctl/check"
 )
-
-type Results struct {
-	StatusCode int
-	Subject    string
-	Issuer     string
-	Name       string
-	Before     string
-	After      string
-	Target     string
-	Healthy    bool
-	Latency    time.Duration
-	CheckedAt  time.Time
-}
 
 func httpRequest(target string) {
 	parsedURL, err := url.Parse(target)
@@ -78,6 +64,7 @@ func tcpRequest(target string) {
 		result.Healthy,
 		result.CheckedAt.Local(),
 	)
+
 	os.Exit(0)
 }
 
@@ -116,6 +103,36 @@ func tlsRequest(target string) {
 	os.Exit(0)
 }
 
+func dnsRequest(target string) {
+	hostname := target
+
+	if strings.Contains(target, "://") {
+	parsed, err := url.Parse(target)
+	if err != nil {
+		// handle error
+	}
+
+	hostname = parsed.Hostname()
+}
+
+	ctx := context.Background()
+	result, err := check.CheckDNS(ctx, hostname)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf(
+		"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		result.Target,
+		result.Response,
+		result.Latency.Milliseconds(),
+		result.Healthy,
+		result.CheckedAt.Local(),
+	)
+
+	os.Exit(0)
+}
+
 func main() {
 	if len(os.Args) < 3 || len(os.Args) > 4 {
 		fmt.Println("Usage: check http <url>")
@@ -142,6 +159,10 @@ func main() {
 
 	if protocol == "tls" {
 		tlsRequest(target)
+	}
+
+	if protocol == "dns" {
+		dnsRequest(target)
 	}
 
 	fmt.Printf("Unknown protocol: %s\n", protocol)
