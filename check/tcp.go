@@ -18,6 +18,7 @@ func CheckTCP(target string) (string, error) {
 	if err != nil {
 		return "Failed to dial: ", err
 	}
+
 	defer conn.Close()
 	return "Success", nil
 

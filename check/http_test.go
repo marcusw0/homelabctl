@@ -1,12 +1,14 @@
 package check
 
 import (
-	"testing"
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 )
 
 func TestCheckHTTP(t *testing.T) {
+	ctx := context.Background()
 	tests := []struct {
 		name        string
 		status      int
@@ -27,7 +29,7 @@ func TestCheckHTTP(t *testing.T) {
 			))
 
 			defer server.Close()
-			got, err := CheckHTTP(server.URL)
+			got, err := CheckHTTP(ctx, server.URL)
 			if err != nil {
 				t.Error(err)
 			}

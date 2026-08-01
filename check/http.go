@@ -1,6 +1,7 @@
 package check
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,16 +17,20 @@ type HTTPResult struct {
 }
 
 // CheckHTTP requests target and reports whether it returned a 2xx status.
-func CheckHTTP(target string) (HTTPResult, error) {
-	client := &http.Client{
-		Timeout: 10 * time.Second,
+func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	client, err := http.NewRequestWithContext(ctx, "GET", target, nil)
+	if err != nil {
+		return HTTPResult{}, err
 	}
 
 	start := time.Now()
-	resp, err := client.Get(target)
+	resp, err := http.DefaultClient.Do(client)
 	if err != nil {
 		return HTTPResult{}, fmt.Errorf("check %q: %w", target, err)
 	}
+
 	defer resp.Body.Close()
 
 	result := HTTPResult{
