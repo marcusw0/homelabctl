@@ -15,15 +15,15 @@ import (
 
 type Results struct {
 	StatusCode int
-	Subject string
-	Issuer string
-	Name string
-	Before string
-	After string
-	Target    string
-	Healthy   bool
-	Latency   time.Duration
-	CheckedAt time.Time
+	Subject    string
+	Issuer     string
+	Name       string
+	Before     string
+	After      string
+	Target     string
+	Healthy    bool
+	Latency    time.Duration
+	CheckedAt  time.Time
 }
 
 func httpRequest(target string) {
@@ -96,7 +96,7 @@ func tlsRequest(target string) {
 	}
 
 	ctx := context.Background()
-	result, err := check.CheckTLS(ctx,target)
+	result, err := check.CheckTLS(ctx, target)
 	if err != nil {
 		log.Fatal(err)
 	}

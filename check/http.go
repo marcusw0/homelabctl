@@ -10,11 +10,11 @@ import (
 
 // HTTPResult contains the useful parts of an HTTP health check.
 type HTTPResult struct {
-	Target    string
+	Target     string
 	StatusCode int
-	Healthy   bool
-	Latency   time.Duration
-	CheckedAt time.Time
+	Healthy    bool
+	Latency    time.Duration
+	CheckedAt  time.Time
 	Body       string
 }
 
@@ -39,7 +39,7 @@ func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
 		StatusCode: resp.StatusCode,
 		Latency:    time.Since(start),
 		Healthy:    resp.StatusCode >= 200 && resp.StatusCode < 300,
-		CheckedAt: time.Now(),
+		CheckedAt:  time.Now(),
 	}
 
 	if !result.Healthy {

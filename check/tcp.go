@@ -24,10 +24,10 @@ func CheckTCP(ctx context.Context, target string) (TCPResults, error) {
 	start := time.Now()
 	conn, err := d.DialContext(ctx, "tcp", target)
 	if err != nil {
-		results := TCPResults {
-			Target: target,
-			Healthy: false,
-			Latency: time.Since(start),
+		results := TCPResults{
+			Target:    target,
+			Healthy:   false,
+			Latency:   time.Since(start),
 			CheckedAt: time.Now(),
 		}
 
@@ -35,11 +35,11 @@ func CheckTCP(ctx context.Context, target string) (TCPResults, error) {
 	}
 
 	defer conn.Close()
-	
-	results := TCPResults {
-		Target: target,
-		Healthy: true,
-		Latency: time.Since(start),
+
+	results := TCPResults{
+		Target:    target,
+		Healthy:   true,
+		Latency:   time.Since(start),
 		CheckedAt: time.Now(),
 	}
 	return results, nil
