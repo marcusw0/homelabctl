@@ -1,8 +1,10 @@
 package check
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
+	"time"
 )
 
 type CertDetails struct {
@@ -13,19 +15,32 @@ type CertDetails struct {
 	After string
 }
 
-func CheckTLS (target string) (CertDetails, error) {
+func CheckTLS (ctx context.Context, target string) (CertDetails, error) {
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {
 		return CertDetails{}, err
 	}
+
 	config := tls.Config{ ServerName: host}
-	conn, err := tls.Dial("tcp", target, &config)
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var d net.Dialer
+
+	netConn, err := d.DialContext(ctx, "tcp", target)
 	if err != nil {
 		return CertDetails{}, err
 	}
 
-	defer conn.Close()
-	state := conn.ConnectionState()
+	tlsConn := tls.Client(netConn, &config)
+	defer tlsConn.Close()
+
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		return CertDetails{}, err
+	}
+
+	state := tlsConn.ConnectionState()
 	cert := state.PeerCertificates[0]
 	result := CertDetails {
 		cert.Subject.String(),
@@ -34,13 +49,6 @@ func CheckTLS (target string) (CertDetails, error) {
 		cert.NotBefore.String(),
 		cert.NotAfter.String(),
 	}
-	
-	// // Read response from the server
-	// buf := make([]byte, 1024)
-	// n, err := conn.Read(buf)
-	// if err != nil {
-	// 	return "Failed to read response: ", err
-	// }
-	// results := string(buf[:n])
+
 	return result, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/netip"
@@ -21,7 +22,8 @@ func httpRequest(target string) {
 		log.Fatalf("Invalid URL: %s\n", target)
 	}
 
-	result, err := check.CheckHTTP(target)
+	ctx := context.Background()
+	result, err := check.CheckHTTP(ctx, target)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,6 +65,7 @@ func tlsRequest(target string) {
 	if !ok {
 		log.Fatalln("Missing port seperator ':'")
 	}
+
 	if port != "443" && port != "80" {
 		log.Fatalf("Invalid port: %s\n", port)
 	}
@@ -70,7 +73,9 @@ func tlsRequest(target string) {
 	if strings.HasPrefix(host, "http") {
 		log.Fatalln("Do not include http prefix")
 	}
-	result, err := check.CheckTLS(target)
+
+	ctx := context.Background()
+	result, err := check.CheckTLS(ctx,target)
 	if err != nil {
 		log.Fatal(err)
 	}
