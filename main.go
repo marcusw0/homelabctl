@@ -106,6 +106,10 @@ func tlsRequest(target string) {
 }
 
 func formatExpiry(d time.Duration) string {
+	if d < 0 {
+		return "EXPIRED"
+	}
+
 	days := int(d / (24 * time.Hour))
 	hours := int((d % (24 * time.Hour)) / time.Hour)
 
