@@ -11,6 +11,7 @@ import (
 // HTTPResult contains the useful parts of an HTTP health check.
 type HTTPResult struct {
 	Target     string
+	Status     string
 	StatusCode int
 	Healthy    bool
 	Latency    time.Duration
@@ -20,17 +21,27 @@ type HTTPResult struct {
 
 // CheckHTTP requests target and reports whether it returned a 2xx status.
 func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	client, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
-		return HTTPResult{}, err
+		result := HTTPResult{
+			StatusCode: client.Response.StatusCode,
+			Healthy:    false,
+			CheckedAt:  time.Now(),
+		}
+		return result, err
 	}
 
 	start := time.Now()
 	resp, err := http.DefaultClient.Do(client)
 	if err != nil {
-		return HTTPResult{}, fmt.Errorf("check %q: %w", target, err)
+		result := HTTPResult{
+			Latency:   time.Since(start),
+			Healthy:   false,
+			CheckedAt: time.Now(),
+		}
+		return result, fmt.Errorf("check %q: %w", target, err)
 	}
 
 	defer resp.Body.Close()
