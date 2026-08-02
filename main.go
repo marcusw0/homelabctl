@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/netip"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/marcusw0/homelabctl/check"
 )
@@ -25,7 +27,13 @@ func httpRequest(target string) {
 	ctx := context.Background()
 	result, err := check.CheckHTTP(ctx, target)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf(
+			"FAILED\nHost: %s\nHealthy: %t\nChecked At: %v\nError: %v\n",
+			parsedURL.Host,
+			result.Healthy,
+			result.CheckedAt.Local(),
+			err,
+		)
 	}
 
 	fmt.Printf(
@@ -69,17 +77,10 @@ func tcpRequest(target string) {
 }
 
 func tlsRequest(target string) {
-	host, port, ok := strings.Cut(target, ":")
-	if !ok {
-		log.Fatalln("Missing port seperator ':'")
-	}
-
-	if port != "443" && port != "80" {
-		log.Fatalf("Invalid port: %s\n", port)
-	}
-
-	if strings.HasPrefix(host, "http") {
-		log.Fatalln("Do not include http prefix")
+	_, _, err := net.SplitHostPort(target)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
@@ -89,12 +90,13 @@ func tlsRequest(target string) {
 	}
 
 	fmt.Printf(
-		"Host: %s\nSubject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		"Host: %s\nSubject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nExpires: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
 		result.Target,
 		result.Subject,
 		result.Issuer,
-		result.Name,
+		result.Names,
 		result.After,
+		formatExpiry(result.Expires),
 		result.Latency.Milliseconds(),
 		result.Healthy,
 		result.CheckedAt.Local(),
@@ -103,17 +105,28 @@ func tlsRequest(target string) {
 	os.Exit(0)
 }
 
+func formatExpiry(d time.Duration) string {
+	if d < 0 {
+		return "EXPIRED"
+	}
+
+	days := int(d / (24 * time.Hour))
+	hours := int((d % (24 * time.Hour)) / time.Hour)
+
+	return fmt.Sprintf("%dd %dh", days, hours)
+}
+
 func dnsRequest(target string) {
 	hostname := target
 
 	if strings.Contains(target, "://") {
-	parsed, err := url.Parse(target)
-	if err != nil {
-		// handle error
-	}
+		parsed, err := url.Parse(target)
+		if err != nil {
+			// handle error
+		}
 
-	hostname = parsed.Hostname()
-}
+		hostname = parsed.Hostname()
+	}
 
 	ctx := context.Background()
 	result, err := check.CheckDNS(ctx, hostname)
@@ -134,9 +147,8 @@ func dnsRequest(target string) {
 }
 
 func main() {
-	if len(os.Args) < 3 || len(os.Args) > 4 {
-		fmt.Println("Usage: check http <url>")
-		fmt.Println("Usage: check tcp <ip:port>")
+	if len(os.Args) != 4 {
+		fmt.Println("Usage: homelabctl check <http|tcp|tls|dns> <target>")
 		os.Exit(1)
 	}
 
@@ -149,22 +161,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if protocol == "http" {
+	switch protocol {
+	case "http":
 		httpRequest(target)
-	}
-
-	if protocol == "tcp" {
+	case "tcp":
 		tcpRequest(target)
-	}
-
-	if protocol == "tls" {
+	case "tls":
 		tlsRequest(target)
-	}
-
-	if protocol == "dns" {
+	case "dns":
 		dnsRequest(target)
+	default:
+		fmt.Printf("Unknown protocol: %s\n", protocol)
+		os.Exit(1)
 	}
-
-	fmt.Printf("Unknown protocol: %s\n", protocol)
-	os.Exit(1)
 }

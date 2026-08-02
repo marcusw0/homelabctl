@@ -8,11 +8,12 @@ import (
 )
 
 type CertDetails struct {
+	Target    string
 	Subject   string
 	Issuer    string
-	Name      string
+	Names     []string
 	After     string
-	Target    string
+	Expires   time.Duration
 	Healthy   bool
 	Latency   time.Duration
 	CheckedAt time.Time
@@ -26,7 +27,7 @@ func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
 
 	config := tls.Config{ServerName: host}
 
-	ctx, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var d net.Dialer
@@ -46,12 +47,30 @@ func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
 
 	state := tlsConn.ConnectionState()
 	cert := state.PeerCertificates[0]
+	expiresIn := time.Until(cert.NotAfter)
+	now := time.Now()
+	validNow := !now.Before(cert.NotBefore) && now.Before(cert.NotAfter)
+
+	if !validNow {
+		result := CertDetails{
+			Target:    target,
+			Subject:   cert.Subject.String(),
+			Issuer:    cert.Issuer.String(),
+			Names:     cert.DNSNames,
+			Healthy:   false,
+			CheckedAt: time.Now(),
+		}
+
+		return result, nil
+	}
+
 	result := CertDetails{
+		Target:    target,
 		Subject:   cert.Subject.String(),
 		Issuer:    cert.Issuer.String(),
-		Name:      cert.DNSNames[0],
+		Names:     cert.DNSNames,
 		After:     cert.NotAfter.String(),
-		Target:    target,
+		Expires:   expiresIn,
 		Healthy:   true,
 		Latency:   time.Since(start),
 		CheckedAt: time.Now(),
