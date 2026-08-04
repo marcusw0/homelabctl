@@ -10,7 +10,6 @@ import (
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-
 type TCPCheckCommand struct {
 	Target  string
 	Port    int
@@ -68,8 +67,8 @@ func (c *TCPCheckCommand) Validate() error {
 }
 
 func (c *TCPCheckCommand) Run(ctx context.Context) error {
-	service := check.TCP {
-		Port: c.Port,
+	service := check.TCP{
+		Port:    c.Port,
 		Timeout: c.Timeout,
 	}
 

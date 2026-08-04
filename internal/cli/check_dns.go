@@ -59,7 +59,7 @@ func (c *DNSCheckCommand) Run(ctx context.Context) error {
 		Timeout: c.Timeout,
 	}
 
-	resp, err :=  service.Check(ctx, c.Target)
+	resp, err := service.Check(ctx, c.Target)
 	if err != nil {
 		log.Printf(
 			"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",

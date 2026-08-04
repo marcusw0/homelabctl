@@ -38,9 +38,9 @@ func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
 
 	netConn, err := d.DialContext(ctx, "tcp", host)
 	if err != nil {
-		results := TLSResults {
-			Target: target,
-			Healthy: false,
+		results := TLSResults{
+			Target:    target,
+			Healthy:   false,
 			CheckedAt: time.Now(),
 		}
 		return results, err
@@ -51,9 +51,9 @@ func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
 	defer tlsConn.Close()
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
-		results := TLSResults {
-			Target: target,
-			Healthy: false,
+		results := TLSResults{
+			Target:    target,
+			Healthy:   false,
 			CheckedAt: time.Now(),
 		}
 		return results, err
@@ -66,7 +66,7 @@ func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
 	validNow := !now.Before(cert.NotBefore) && now.Before(cert.NotAfter)
 
 	if !validNow {
-		results := TLSResults {
+		results := TLSResults{
 			Target:    target,
 			Subject:   cert.Subject.String(),
 			Issuer:    cert.Issuer.String(),
@@ -78,7 +78,7 @@ func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
 		return results, nil
 	}
 
-	results := TLSResults {
+	results := TLSResults{
 		Target:    target,
 		Subject:   cert.Subject.String(),
 		Issuer:    cert.Issuer.String(),

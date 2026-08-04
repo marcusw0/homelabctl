@@ -82,7 +82,7 @@ func (c *TLSCheckCommand) Run(ctx context.Context) error {
 		Verbose: c.Verbose,
 	}
 
-	resp, err :=  service.Check(ctx, c.Target)
+	resp, err := service.Check(ctx, c.Target)
 	if err != nil {
 		log.Printf(
 			"Host: %s\nHealthy: %t\nChecked At: %v\n",
@@ -123,4 +123,3 @@ func formatExpiry(d time.Duration) string {
 
 	return fmt.Sprintf("%dd %dh", days, hours)
 }
-

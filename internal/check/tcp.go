@@ -19,7 +19,7 @@ type TCPResults struct {
 	CheckedAt time.Time
 }
 
-func(c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
+func (c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
 	var d net.Dialer
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
