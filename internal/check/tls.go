@@ -4,10 +4,17 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"strconv"
 	"time"
 )
 
-type CertDetails struct {
+type TLS struct {
+	Port    int
+	Timeout time.Duration
+	Verbose bool
+}
+
+type TLSResults struct {
 	Target    string
 	Subject   string
 	Issuer    string
@@ -19,22 +26,24 @@ type CertDetails struct {
 	CheckedAt time.Time
 }
 
-func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
-	host, _, err := net.SplitHostPort(target)
-	if err != nil {
-		return CertDetails{}, err
-	}
-
-	config := tls.Config{ServerName: host}
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
+	config := tls.Config{ServerName: target}
+	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
+
+	port := strconv.Itoa(c.Port)
+	host := net.JoinHostPort(target, port)
 
 	var d net.Dialer
 
-	netConn, err := d.DialContext(ctx, "tcp", target)
+	netConn, err := d.DialContext(ctx, "tcp", host)
 	if err != nil {
-		return CertDetails{}, err
+		results := TLSResults{
+			Target:    target,
+			Healthy:   false,
+			CheckedAt: time.Now(),
+		}
+		return results, err
 	}
 
 	start := time.Now()
@@ -42,7 +51,12 @@ func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
 	defer tlsConn.Close()
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
-		return CertDetails{}, err
+		results := TLSResults{
+			Target:    target,
+			Healthy:   false,
+			CheckedAt: time.Now(),
+		}
+		return results, err
 	}
 
 	state := tlsConn.ConnectionState()
@@ -52,7 +66,7 @@ func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
 	validNow := !now.Before(cert.NotBefore) && now.Before(cert.NotAfter)
 
 	if !validNow {
-		result := CertDetails{
+		results := TLSResults{
 			Target:    target,
 			Subject:   cert.Subject.String(),
 			Issuer:    cert.Issuer.String(),
@@ -61,10 +75,10 @@ func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
 			CheckedAt: time.Now(),
 		}
 
-		return result, nil
+		return results, nil
 	}
 
-	result := CertDetails{
+	results := TLSResults{
 		Target:    target,
 		Subject:   cert.Subject.String(),
 		Issuer:    cert.Issuer.String(),
@@ -76,5 +90,5 @@ func CheckTLS(ctx context.Context, target string) (CertDetails, error) {
 		CheckedAt: time.Now(),
 	}
 
-	return result, nil
+	return results, nil
 }

@@ -2,10 +2,15 @@ package check
 
 import (
 	"context"
-	"fmt"
 	"net"
+	"strconv"
 	"time"
 )
+
+type TCP struct {
+	Port    int
+	Timeout time.Duration
+}
 
 type TCPResults struct {
 	Target    string
@@ -14,15 +19,16 @@ type TCPResults struct {
 	CheckedAt time.Time
 }
 
-var ERROR_FAILED_DIAL = fmt.Errorf("Failed to dial:")
-
-func CheckTCP(ctx context.Context, target string) (TCPResults, error) {
+func (c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
 	var d net.Dialer
-	ctx, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 
+	port := strconv.Itoa(c.Port)
+	host := net.JoinHostPort(target, port)
+
 	start := time.Now()
-	conn, err := d.DialContext(ctx, "tcp", target)
+	conn, err := d.DialContext(ctx, "tcp", host)
 	if err != nil {
 		results := TCPResults{
 			Target:    target,
