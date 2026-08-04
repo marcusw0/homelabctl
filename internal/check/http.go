@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+type HTTP struct {
+	Timeout        time.Duration
+	ExpectedStatus int
+	FollowRedirect bool
+}
+
 // HTTPResult contains the useful parts of an HTTP health check.
 type HTTPResult struct {
 	Target     string
@@ -19,9 +25,8 @@ type HTTPResult struct {
 	Body       string
 }
 
-// CheckHTTP requests target and reports whether it returned a 2xx status.
-func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
 	defer cancel()
 	client, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
@@ -41,7 +46,7 @@ func CheckHTTP(ctx context.Context, target string) (HTTPResult, error) {
 			Healthy:   false,
 			CheckedAt: time.Now(),
 		}
-		return result, fmt.Errorf("check %q: %w", target, err)
+		return result, err
 	}
 
 	defer resp.Body.Close()

@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+type DNS struct {
+	Timeout time.Duration
+}
+
 type DNSResults struct {
 	Target    string
 	Response  []string
@@ -14,8 +18,8 @@ type DNSResults struct {
 	CheckedAt time.Time
 }
 
-func CheckDNS(ctx context.Context, target string) (DNSResults, error) {
-	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+func (d *DNS) Check(ctx context.Context, target string) (DNSResults, error) {
+	ctx, cancel := context.WithTimeout(ctx, d.Timeout)
 	defer cancel()
 
 	start := time.Now()
