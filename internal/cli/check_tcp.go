@@ -75,11 +75,12 @@ func (c *TCPCheckCommand) Run(ctx context.Context) error {
 	resp, err := service.Check(ctx, c.Target)
 	if err != nil {
 		log.Printf(
-			"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+			"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",
 			resp.Target,
 			resp.Latency.Milliseconds(),
 			resp.Healthy,
 			resp.CheckedAt.Local(),
+			resp.Message,
 		)
 		return err
 	}
@@ -90,10 +91,11 @@ func (c *TCPCheckCommand) Run(ctx context.Context) error {
 
 func handleTCPResponse(resp check.TCPResults) {
 	log.Printf(
-		"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",
 		resp.Target,
 		resp.Latency.Milliseconds(),
 		resp.Healthy,
 		resp.CheckedAt.Local(),
+		resp.Message,
 	)
 }
