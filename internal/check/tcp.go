@@ -17,6 +17,7 @@ type TCPResults struct {
 	Healthy   bool
 	Latency   time.Duration
 	CheckedAt time.Time
+	Message   string
 }
 
 func (c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
@@ -35,11 +36,15 @@ func (c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
 			Healthy:   false,
 			Latency:   time.Since(start),
 			CheckedAt: time.Now(),
+			Message:   err.Error(),
 		}
-
-		return results, err
+		// treat context cancellation as error
+		if ctx.Err() != nil {
+			return results, ctx.Err()
+		}
+		// treat unreachable as unhealthy, not as an error
+		return results, nil
 	}
-
 	defer conn.Close()
 
 	results := TCPResults{
@@ -48,6 +53,6 @@ func (c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
 		Latency:   time.Since(start),
 		CheckedAt: time.Now(),
 	}
-	return results, nil
 
+	return results, nil
 }

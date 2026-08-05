@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestCheckHTTP(t *testing.T) {
@@ -20,6 +21,10 @@ func TestCheckHTTP(t *testing.T) {
 		{"server error", http.StatusInternalServerError, false},
 	}
 
+	s := HTTP{
+		Timeout: 3 * time.Second,
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(
@@ -29,7 +34,7 @@ func TestCheckHTTP(t *testing.T) {
 			))
 
 			defer server.Close()
-			got, err := CheckHTTP(ctx, server.URL)
+			got, err := s.Check(ctx, server.URL)
 			if err != nil {
 				t.Error(err)
 			}
