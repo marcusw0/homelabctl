@@ -2,8 +2,6 @@ package check
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"net/http"
 	"time"
 )
@@ -28,18 +26,29 @@ type HTTPResult struct {
 func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
 	defer cancel()
-	client, err := http.NewRequestWithContext(ctx, "GET", target, nil)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
 		result := HTTPResult{
-			StatusCode: client.Response.StatusCode,
-			Healthy:    false,
-			CheckedAt:  time.Now(),
+			Healthy:   false,
+			CheckedAt: time.Now(),
 		}
 		return result, err
 	}
 
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) > 0 {
+				if !h.FollowRedirect {
+					return http.ErrUseLastResponse
+				}
+			}
+			return nil
+		},
+	}
+
 	start := time.Now()
-	resp, err := http.DefaultClient.Do(client)
+	resp, err := client.Do(req)
 	if err != nil {
 		result := HTTPResult{
 			Latency:   time.Since(start),
@@ -54,16 +63,8 @@ func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
 	result := HTTPResult{
 		StatusCode: resp.StatusCode,
 		Latency:    time.Since(start),
-		Healthy:    resp.StatusCode >= 200 && resp.StatusCode < 300,
+		Healthy:    resp.StatusCode == h.ExpectedStatus,
 		CheckedAt:  time.Now(),
-	}
-
-	if !result.Healthy {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return HTTPResult{}, fmt.Errorf("read response from %q: %w", target, err)
-		}
-		result.Body = string(body)
 	}
 
 	return result, nil

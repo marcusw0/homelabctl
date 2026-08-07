@@ -48,7 +48,7 @@ The networking checks are still under development. Configuration, inventories, c
 - [x] Context cancellation and per-check timeouts
 - [x] Structured results with health, latency, and timestamps
 - [x] Certificate expiration reporting
-- [ ] HTTP redirect reporting
+- [x] HTTP redirect reporting
 - [ ] Automated tests for TCP, TLS, and DNS checks
 
 ### Phase 3: Configuration and CLI design
