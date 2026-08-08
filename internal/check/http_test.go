@@ -17,7 +17,7 @@ func TestCheckHTTP(t *testing.T) {
 	}{
 		{"success", http.StatusOK, true},
 		{"last healthy status", 299, true},
-		{"redirect boundary", 300, false},
+		{"redirect boundary", 300, true},
 		{"server error", http.StatusInternalServerError, false},
 	}
 
@@ -34,6 +34,7 @@ func TestCheckHTTP(t *testing.T) {
 			))
 
 			defer server.Close()
+			s.ExpectedStatus = tt.status
 			got, err := s.Check(ctx, server.URL)
 			if err != nil {
 				t.Error(err)

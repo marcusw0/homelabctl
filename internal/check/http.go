@@ -67,5 +67,9 @@ func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
 		CheckedAt:  time.Now(),
 	}
 
+	if resp.StatusCode >= 400 {
+		result.Healthy = false
+	}
+
 	return result, nil
 }
