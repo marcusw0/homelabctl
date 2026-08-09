@@ -30,6 +30,7 @@ func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
 		result := HTTPResult{
+			Target:    target,
 			Healthy:   false,
 			CheckedAt: time.Now(),
 		}
@@ -51,6 +52,7 @@ func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		result := HTTPResult{
+			Target:    target,
 			Latency:   time.Since(start),
 			Healthy:   false,
 			CheckedAt: time.Now(),
@@ -61,6 +63,7 @@ func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
 	defer resp.Body.Close()
 
 	result := HTTPResult{
+		Target:     target,
 		StatusCode: resp.StatusCode,
 		Latency:    time.Since(start),
 		Healthy:    resp.StatusCode == h.ExpectedStatus,

@@ -39,33 +39,33 @@ The networking checks are still under development. Configuration, inventories, c
 - Add structured HTTP results
 - Add tests
 
-### Phase 2: Network checks — In progress
+### Phase 2: Network checks — Complete
 
-- [x] HTTP status and latency checks
-- [x] TCP connectivity checks
-- [x] TLS certificate inspection
-- [x] DNS lookups
-- [x] Context cancellation and per-check timeouts
-- [x] Structured results with health, latency, and timestamps
-- [x] Certificate expiration reporting
-- [x] HTTP redirect reporting
-- [ ] Automated tests for TCP, TLS, and DNS checks
+- HTTP status and latency checks
+- TCP connectivity checks
+- TLS certificate inspection
+- DNS lookups
+- Context cancellation and per-check timeouts
+- Structured results with health, latency, and timestamps
+- Certificate expiration reporting
+- HTTP redirect reporting
+- Automated tests for TCP, HTTP, and DNS checks
 
-### Phase 3: Configuration and CLI design
+### Phase 3: Configuration and CLI design — In progress
 
-- Load service definitions from TOML or JSON
-- Command-line flags
-- Environment variables
-- Built-in defaults
-- Add commands for listing and checking configured services
-- Validate service names, targets, ports, durations, check types, and runbooks
+- [x] Load service definitions from TOML or JSON
+- [x] Command-line flags
+- [ ] Environment variables
+- [ ] Built-in defaults
+- [ ] Add commands for listing and checking configured services
+- [ ] Validate service names, targets, ports, durations, check types, and runbooks
 
 Planned commands:
 
 ```bash
 homelabctl list
 homelabctl check --service GitLab
-homelabctl check --config ~/.config/homelabctl/config.toml
+homelabctl config add Gitlab
 ```
 
 ### Phase 4: Concurrent checks
