@@ -55,7 +55,7 @@ func Parse(args []string) (Command, error) {
 
 	switch args[0] {
 	case "check":
-		return parseCheck(args[1:])
+		return parseCheck(args[1:], opts)
 	case "config":
 		return parseConfig(args[1:], opts)
 	// case "list":

@@ -16,11 +16,11 @@ func main() {
 
 	parsed, err := cli.Parse(os.Args[1:])
 	if err != nil {
-		log.Fatalf("Fatal Error: %q\n", err)
+		log.Fatalf("error: %v", err)
 	}
 
 	if err := parsed.Validate(); err != nil {
-		log.Fatalf("Fatal Error: %q\n", err)
+		log.Fatalf("error: %v", err)
 	}
 
 	ctx, cancel := signal.NotifyContext(
@@ -30,7 +30,7 @@ func main() {
 	defer cancel()
 
 	if err := parsed.Run(ctx); err != nil {
-		log.Fatalf("Fatal Error: %q\n", err)
+		log.Fatalf("error: %v", err)
 	}
 
 	log.Println("done")

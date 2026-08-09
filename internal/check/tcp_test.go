@@ -2,28 +2,28 @@ package check
 
 import (
 	"context"
-	"log"
 	"net"
 	"testing"
 	"time"
 )
 
-var test = TCP{
-	Port:    1234,
-	Timeout: time.Second,
-}
-
 func TestTCPCheck_Reachable(t *testing.T) {
 	laddr := net.TCPAddr{
 		IP:   []byte{127, 0, 0, 1},
-		Port: 1234,
+		Port: 0,
 	}
 
 	server, err := net.ListenTCP("tcp", &laddr)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	defer server.Close()
+	port := server.Addr().(*net.TCPAddr).Port
+
+	test := TCP{
+		Port:    port,
+		Timeout: time.Second,
+	}
 
 	got, err := test.Check(context.Background(), "127.0.0.1")
 
@@ -39,6 +39,25 @@ func TestTCPCheck_Reachable(t *testing.T) {
 }
 
 func TestTCPCheck_Unreachable(t *testing.T) {
+	laddr := net.TCPAddr{
+		IP:   []byte{127, 0, 0, 1},
+		Port: 0,
+	}
+
+	server, err := net.ListenTCP("tcp", &laddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := server.Addr().(*net.TCPAddr).Port
+	if err := server.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	test := TCP{
+		Port:    port,
+		Timeout: time.Second,
+	}
+
 	got, err := test.Check(context.Background(), "127.0.0.1")
 
 	if err != nil {

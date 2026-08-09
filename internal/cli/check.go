@@ -3,9 +3,12 @@ package cli
 import (
 	"errors"
 	"fmt"
+
+	"github.com/BurntSushi/toml"
+	"github.com/marcusw0/homelabctl/internal/config"
 )
 
-func parseCheck(args []string) (Command, error) {
+func parseCheck(args []string, opts GlobalOption) (Command, error) {
 	if len(args) < 1 {
 		return nil, errors.New("Expected command: dns|http|tcp|tls")
 	}
@@ -20,6 +23,35 @@ func parseCheck(args []string) (Command, error) {
 	case "tls":
 		return parseTLSCheck(args[1:])
 	default:
-		return nil, fmt.Errorf("Unknown check type: %q", args[0])
+		if len(args) != 1 {
+			return nil, errors.New("check accepts exactly one server name")
+		}
+
+		serverName := args[0]
+
+		var cfg config.Config
+		if _, err := toml.DecodeFile(opts.ConfigPath, &cfg); err != nil {
+			return nil, fmt.Errorf("load config: %w", err)
+		}
+
+		server, exists := cfg.Servers[serverName]
+		if !exists {
+			return nil, fmt.Errorf(
+				"server %q not found in %s",
+				serverName,
+				opts.ConfigPath,
+			)
+		}
+		if !server.Enabled {
+			return nil, fmt.Errorf("server %q is disabled", serverName)
+		}
+
+		checkAll := CheckAllCmd{
+			fqdn: server.FQDN,
+			ip:   server.IP,
+			port: server.Port,
+		}
+		return &checkAll, nil
 	}
+
 }

@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
@@ -40,7 +43,7 @@ func parseHTTPCheck(args []string) (Command, error) {
 	flags.BoolVar(
 		&cmd.FollowRedirect,
 		"follow-redirects",
-		false,
+		true,
 		"Should redirects be followed",
 	)
 
@@ -70,6 +73,15 @@ func (c *HTTPCheckCommand) Validate() error {
 
 	if c.ExpectedStatus < 100 || c.ExpectedStatus > 599 {
 		return errors.New("expected-status must be between 100 and 599")
+	}
+	if !strings.HasPrefix(c.Target, "https://") &&
+		!strings.HasPrefix(c.Target, "http://") {
+		c.Target = "https://" + c.Target
+	}
+
+	parsedURL, err := url.ParseRequestURI(c.Target)
+	if err != nil || parsedURL.Host == "" {
+		return fmt.Errorf("invalid HTTP target %q", c.Target)
 	}
 
 	return nil

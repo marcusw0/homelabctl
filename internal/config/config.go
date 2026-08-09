@@ -11,10 +11,10 @@ type Config struct {
 }
 
 type Server struct {
-	FQDN      string
-	IPaddress string
-	Port      int
-	Enabled   bool
+	FQDN    string `toml:"fqdn"`
+	IP      string `toml:"ip"`
+	Port    int    `toml:"port"`
+	Enabled bool   `toml:"enabled"`
 }
 
 func DefaultPath() (string, error) {
