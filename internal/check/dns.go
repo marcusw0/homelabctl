@@ -18,7 +18,11 @@ type DNSResults struct {
 	CheckedAt time.Time
 }
 
-func (d *DNS) Check(ctx context.Context, target string) (DNSResults, error) {
+func (d *DNS) Check(
+	ctx context.Context,
+	target string,
+) (DNSResults, error) {
+
 	ctx, cancel := context.WithTimeout(ctx, d.Timeout)
 	defer cancel()
 

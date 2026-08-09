@@ -5,13 +5,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 
 	"github.com/marcusw0/homelabctl/internal/config"
 )
 
+type IOStreams struct {
+	In     io.Reader
+	Out    io.Writer
+	ErrOut io.Writer
+}
+
 type Command interface {
 	Validate() error
-	Run(context.Context) error
+	Run(context.Context, IOStreams) error
 }
 
 type GlobalOption struct {
@@ -19,7 +26,7 @@ type GlobalOption struct {
 	Verbose    bool
 }
 
-func Parse(args []string) (Command, error) {
+func Parse(args []string, errOut io.Writer) (Command, error) {
 
 	opts := GlobalOption{}
 
@@ -29,6 +36,8 @@ func Parse(args []string) (Command, error) {
 	}
 
 	flags := flag.NewFlagSet("homelabctl", flag.ContinueOnError)
+	flags.SetOutput(errOut)
+
 	flags.StringVar(
 		&opts.ConfigPath,
 		"config",
@@ -50,7 +59,7 @@ func Parse(args []string) (Command, error) {
 	args = flags.Args()
 
 	if len(args) == 0 {
-		return nil, errors.New("Expected a command: check|config|list")
+		return nil, errors.New("Expected a command: check|config|list\n")
 	}
 
 	switch args[0] {

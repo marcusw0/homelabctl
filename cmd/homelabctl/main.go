@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 
@@ -10,17 +10,29 @@ import (
 )
 
 func main() {
-	if len(os.Args) <= 1 {
-		log.Fatalln("Usage: homelabctl check <http|tcp|tls|dns> <target>")
+
+	streams := cli.IOStreams{
+		In:     os.Stdin,
+		Out:    os.Stdout,
+		ErrOut: os.Stderr,
 	}
 
-	parsed, err := cli.Parse(os.Args[1:])
+	if len(os.Args) <= 1 {
+		fmt.Fprintln(
+			streams.ErrOut,
+			"Usage: homelabctl check <http|tcp|tls|dns> <target>",
+		)
+	}
+
+	parsed, err := cli.Parse(os.Args[1:], streams.ErrOut)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		fmt.Fprintf(streams.ErrOut, "ERORR %v", err)
+		os.Exit(2)
 	}
 
 	if err := parsed.Validate(); err != nil {
-		log.Fatalf("error: %v", err)
+		fmt.Fprintf(streams.ErrOut, "ERORR %v", err)
+		os.Exit(1)
 	}
 
 	ctx, cancel := signal.NotifyContext(
@@ -29,10 +41,10 @@ func main() {
 	)
 	defer cancel()
 
-	if err := parsed.Run(ctx); err != nil {
-		log.Fatalf("error: %v", err)
+	if err := parsed.Run(ctx, streams); err != nil {
+		fmt.Fprintf(streams.ErrOut, "ERORR %v", err)
+		os.Exit(1)
 	}
 
-	log.Println("done")
 	os.Exit(0)
 }

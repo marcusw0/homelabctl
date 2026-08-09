@@ -5,13 +5,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-type TLSCheckCommand struct {
+type TLSCheckCmd struct {
 	Target  string
 	Port    int
 	Timeout time.Duration
@@ -19,7 +19,7 @@ type TLSCheckCommand struct {
 }
 
 func parseTLSCheck(args []string) (Command, error) {
-	cmd := &TLSCheckCommand{}
+	cmd := &TLSCheckCmd{}
 
 	flags := flag.NewFlagSet("check tls", flag.ContinueOnError)
 
@@ -59,7 +59,7 @@ func parseTLSCheck(args []string) (Command, error) {
 	return cmd, nil
 }
 
-func (c *TLSCheckCommand) Validate() error {
+func (c *TLSCheckCmd) Validate() error {
 	if c.Target == "" {
 		return errors.New("Expected destination")
 	}
@@ -75,31 +75,34 @@ func (c *TLSCheckCommand) Validate() error {
 	return nil
 }
 
-func (c *TLSCheckCommand) Run(ctx context.Context) error {
+func (c *TLSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.TLS{
 		Port:    c.Port,
 		Timeout: c.Timeout,
 		Verbose: c.Verbose,
 	}
 
-	resp, err := service.Check(ctx, c.Target)
-	if err != nil {
-		log.Printf(
+	resp, respErr := service.Check(ctx, c.Target)
+	if respErr != nil {
+		_, writeErr := fmt.Fprintf(
+			streams.Out,
 			"Host: %s\nHealthy: %t\nChecked At: %v\n",
 			resp.Target,
 			resp.Healthy,
 			resp.CheckedAt.Local(),
 		)
-
-		return err
+		return errors.Join(respErr, writeErr)
 	}
 
-	handleTLSResponse(resp)
+	if err := handleTLSResponse(streams.Out, resp); err != nil {
+		return err
+	}
 	return nil
 }
 
-func handleTLSResponse(resp check.TLSResults) {
-	log.Printf(
+func handleTLSResponse(out io.Writer, resp check.TLSResults) error {
+	_, err := fmt.Fprintf(
+		out,
 		"Host: %s\nSubject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nExpires: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
 		resp.Target,
 		resp.Subject,
@@ -111,6 +114,10 @@ func handleTLSResponse(resp check.TLSResults) {
 		resp.Healthy,
 		resp.CheckedAt.Local(),
 	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func formatExpiry(d time.Duration) string {

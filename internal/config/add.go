@@ -9,9 +9,8 @@ import (
 )
 
 func ConfigAdd(serverName string, configPath string) error {
-	var cfg Config
 
-	_, err := toml.DecodeFile(configPath, &cfg)
+	cfg, err := Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}

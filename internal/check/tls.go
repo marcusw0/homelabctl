@@ -26,7 +26,11 @@ type TLSResults struct {
 	CheckedAt time.Time
 }
 
-func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
+func (c *TLS) Check(
+	ctx context.Context,
+	target string,
+) (TLSResults, error) {
+
 	config := tls.Config{ServerName: target}
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
