@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"log"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-type TCPCheckCommand struct {
+type TCPCheckCmd struct {
 	Target  string
 	Port    int
 	Timeout time.Duration
 }
 
 func parseTCPCheck(args []string) (Command, error) {
-	cmd := &TCPCheckCommand{}
+	cmd := &TCPCheckCmd{}
 
 	flags := flag.NewFlagSet("check tcp", flag.ContinueOnError)
 
@@ -50,7 +51,7 @@ func parseTCPCheck(args []string) (Command, error) {
 	return cmd, nil
 }
 
-func (c *TCPCheckCommand) Validate() error {
+func (c *TCPCheckCmd) Validate() error {
 	if c.Target == "" {
 		return errors.New("Expected destination")
 	}
@@ -66,15 +67,16 @@ func (c *TCPCheckCommand) Validate() error {
 	return nil
 }
 
-func (c *TCPCheckCommand) Run(ctx context.Context) error {
+func (c *TCPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.TCP{
 		Port:    c.Port,
 		Timeout: c.Timeout,
 	}
 
-	resp, err := service.Check(ctx, c.Target)
-	if err != nil {
-		log.Printf(
+	resp, respErr := service.Check(ctx, c.Target)
+	if respErr != nil {
+		_, writeErr := fmt.Fprintf(
+			streams.Out,
 			"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",
 			resp.Target,
 			resp.Latency.Milliseconds(),
@@ -82,15 +84,18 @@ func (c *TCPCheckCommand) Run(ctx context.Context) error {
 			resp.CheckedAt.Local(),
 			resp.Message,
 		)
-		return err
+		return errors.Join(respErr, writeErr)
 	}
 
-	handleTCPResponse(resp)
+	if err := handleTCPResponse(streams.Out, resp); err != nil {
+		return err
+	}
 	return nil
 }
 
-func handleTCPResponse(resp check.TCPResults) {
-	log.Printf(
+func handleTCPResponse(out io.Writer, resp check.TCPResults) error {
+	_, err := fmt.Fprintf(
+		out,
 		"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",
 		resp.Target,
 		resp.Latency.Milliseconds(),
@@ -98,4 +103,8 @@ func handleTCPResponse(resp check.TCPResults) {
 		resp.CheckedAt.Local(),
 		resp.Message,
 	)
+	if err != nil {
+		return err
+	}
+	return nil
 }

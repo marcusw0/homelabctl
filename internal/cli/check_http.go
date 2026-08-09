@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,7 +14,7 @@ import (
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-type HTTPCheckCommand struct {
+type HTTPCheckCmd struct {
 	Target         string
 	Timeout        time.Duration
 	ExpectedStatus int
@@ -22,7 +22,7 @@ type HTTPCheckCommand struct {
 }
 
 func parseHTTPCheck(args []string) (Command, error) {
-	cmd := &HTTPCheckCommand{}
+	cmd := &HTTPCheckCmd{}
 
 	flags := flag.NewFlagSet("check http", flag.ContinueOnError)
 
@@ -62,7 +62,7 @@ func parseHTTPCheck(args []string) (Command, error) {
 	return cmd, nil
 }
 
-func (c *HTTPCheckCommand) Validate() error {
+func (c *HTTPCheckCmd) Validate() error {
 	if c.Target == "" {
 		return errors.New("Need to specify destination to check")
 	}
@@ -87,31 +87,34 @@ func (c *HTTPCheckCommand) Validate() error {
 	return nil
 }
 
-func (c *HTTPCheckCommand) Run(ctx context.Context) error {
+func (c *HTTPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.HTTP{
 		Timeout:        c.Timeout,
 		ExpectedStatus: c.ExpectedStatus,
 		FollowRedirect: c.FollowRedirect,
 	}
 
-	resp, err := service.Check(ctx, c.Target)
-	if err != nil {
-		log.Printf(
+	resp, respErr := service.Check(ctx, c.Target)
+	if respErr != nil {
+		_, writeErr := fmt.Fprintf(
+			streams.Out,
 			"FAILED\nHost: %s\nHealthy: %t\nChecked At: %v\n",
 			resp.Target,
 			resp.Healthy,
 			resp.CheckedAt.Local(),
 		)
-
-		return err
+		return errors.Join(respErr, writeErr)
 	}
 
-	handleHTTPResponse(resp)
+	if err := handleHTTPResponse(streams.Out, resp); err != nil {
+		return err
+	}
 	return nil
 }
 
-func handleHTTPResponse(resp check.HTTPResult) {
-	log.Printf(
+func handleHTTPResponse(out io.Writer, resp check.HTTPResult) error {
+	_, err := fmt.Fprintf(
+		out,
 		"Server: %s\nStatus: %d\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
 		resp.Target,
 		resp.StatusCode,
@@ -119,4 +122,8 @@ func handleHTTPResponse(resp check.HTTPResult) {
 		resp.Healthy,
 		resp.CheckedAt.Local(),
 	)
+	if err != nil {
+		return err
+	}
+	return nil
 }

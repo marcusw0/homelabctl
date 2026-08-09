@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"log"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-type DNSCheckCommand struct {
+type DNSCheckCmd struct {
 	Target  string
 	Timeout time.Duration
 }
 
 func parseDNSCheck(args []string) (Command, error) {
-	cmd := &DNSCheckCommand{}
+	cmd := &DNSCheckCmd{}
 
 	flags := flag.NewFlagSet("check dns", flag.ContinueOnError)
 
@@ -42,7 +43,7 @@ func parseDNSCheck(args []string) (Command, error) {
 	return cmd, nil
 }
 
-func (c *DNSCheckCommand) Validate() error {
+func (c *DNSCheckCmd) Validate() error {
 	if c.Target == "" {
 		return errors.New("Need to specify destination to check")
 	}
@@ -54,14 +55,16 @@ func (c *DNSCheckCommand) Validate() error {
 	return nil
 }
 
-func (c *DNSCheckCommand) Run(ctx context.Context) error {
+func (c *DNSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
+	out := streams.Out
 	service := check.DNS{
 		Timeout: c.Timeout,
 	}
 
-	resp, err := service.Check(ctx, c.Target)
-	if err != nil {
-		log.Printf(
+	resp, respErr := service.Check(ctx, c.Target)
+	if respErr != nil {
+		_, writeErr := fmt.Fprintf(
+			out,
 			"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
 			resp.Target,
 			resp.Response,
@@ -69,20 +72,26 @@ func (c *DNSCheckCommand) Run(ctx context.Context) error {
 			resp.Healthy,
 			resp.CheckedAt.Local(),
 		)
-		return err
+		return errors.Join(respErr, writeErr)
 	}
 
-	handleDNSResponse(resp)
+	if err := handleDNSResponse(out, resp); err != nil {
+		return err
+	}
 	return nil
 }
 
-func handleDNSResponse(resp check.DNSResults) {
-	log.Printf(
+func handleDNSResponse(out io.Writer, resp check.DNSResults) error {
+	if _, err := fmt.Fprintf(
+		out,
 		"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
 		resp.Target,
 		resp.Response,
 		resp.Latency.Milliseconds(),
 		resp.Healthy,
 		resp.CheckedAt.Local(),
-	)
+	); err != nil {
+		return err
+	}
+	return nil
 }

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestHTTPCheckCommandValidate(t *testing.T) {
+func TestHTTPCheckCmdValidate(t *testing.T) {
 	tests := []struct {
 		name       string
 		target     string
@@ -21,7 +21,7 @@ func TestHTTPCheckCommandValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := HTTPCheckCommand{
+			cmd := HTTPCheckCmd{
 				Target:         tt.target,
 				Timeout:        time.Second,
 				ExpectedStatus: http.StatusOK,

@@ -23,7 +23,11 @@ type HTTPResult struct {
 	Body       string
 }
 
-func (h *HTTP) Check(ctx context.Context, target string) (HTTPResult, error) {
+func (h *HTTP) Check(
+	ctx context.Context,
+	target string,
+) (HTTPResult, error) {
+
 	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
 	defer cancel()
 
