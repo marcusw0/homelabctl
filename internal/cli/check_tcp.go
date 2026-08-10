@@ -17,10 +17,11 @@ type TCPCheckCmd struct {
 	Timeout time.Duration
 }
 
-func parseTCPCheck(args []string) (Command, error) {
+func parseTCPCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
 	cmd := &TCPCheckCmd{}
 
 	flags := flag.NewFlagSet("check tcp", flag.ContinueOnError)
+	flags.SetOutput(errOut)
 
 	flags.IntVar(
 		&cmd.Port,
@@ -87,13 +88,13 @@ func (c *TCPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 		return errors.Join(respErr, writeErr)
 	}
 
-	if err := handleTCPResponse(streams.Out, resp); err != nil {
+	if err := writeTCPResponse(streams.Out, resp); err != nil {
 		return err
 	}
 	return nil
 }
 
-func handleTCPResponse(out io.Writer, resp check.TCPResults) error {
+func writeTCPResponse(out io.Writer, resp check.TCPResults) error {
 	_, err := fmt.Fprintf(
 		out,
 		"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",

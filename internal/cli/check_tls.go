@@ -18,10 +18,11 @@ type TLSCheckCmd struct {
 	Verbose bool
 }
 
-func parseTLSCheck(args []string) (Command, error) {
+func parseTLSCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
 	cmd := &TLSCheckCmd{}
 
 	flags := flag.NewFlagSet("check tls", flag.ContinueOnError)
+	flags.SetOutput(errOut)
 
 	flags.IntVar(
 		&cmd.Port,
@@ -94,13 +95,13 @@ func (c *TLSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 		return errors.Join(respErr, writeErr)
 	}
 
-	if err := handleTLSResponse(streams.Out, resp); err != nil {
+	if err := writeTLSResponse(streams.Out, resp); err != nil {
 		return err
 	}
 	return nil
 }
 
-func handleTLSResponse(out io.Writer, resp check.TLSResults) error {
+func writeTLSResponse(out io.Writer, resp check.TLSResults) error {
 	_, err := fmt.Fprintf(
 		out,
 		"Host: %s\nSubject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nExpires: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",

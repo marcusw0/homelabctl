@@ -16,10 +16,11 @@ type DNSCheckCmd struct {
 	Timeout time.Duration
 }
 
-func parseDNSCheck(args []string) (Command, error) {
+func parseDNSCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
 	cmd := &DNSCheckCmd{}
 
 	flags := flag.NewFlagSet("check dns", flag.ContinueOnError)
+	flags.SetOutput(errOut)
 
 	flags.DurationVar(
 		&cmd.Timeout,
@@ -75,13 +76,13 @@ func (c *DNSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 		return errors.Join(respErr, writeErr)
 	}
 
-	if err := handleDNSResponse(out, resp); err != nil {
+	if err := writeDNSResponse(out, resp); err != nil {
 		return err
 	}
 	return nil
 }
 
-func handleDNSResponse(out io.Writer, resp check.DNSResults) error {
+func writeDNSResponse(out io.Writer, resp check.DNSResults) error {
 	if _, err := fmt.Fprintf(
 		out,
 		"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",

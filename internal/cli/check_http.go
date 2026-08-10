@@ -21,10 +21,11 @@ type HTTPCheckCmd struct {
 	FollowRedirect bool
 }
 
-func parseHTTPCheck(args []string) (Command, error) {
+func parseHTTPCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
 	cmd := &HTTPCheckCmd{}
 
 	flags := flag.NewFlagSet("check http", flag.ContinueOnError)
+	flags.SetOutput(errOut)
 
 	flags.DurationVar(
 		&cmd.Timeout,
@@ -106,13 +107,13 @@ func (c *HTTPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 		return errors.Join(respErr, writeErr)
 	}
 
-	if err := handleHTTPResponse(streams.Out, resp); err != nil {
+	if err := writeHTTPResponse(streams.Out, resp); err != nil {
 		return err
 	}
 	return nil
 }
 
-func handleHTTPResponse(out io.Writer, resp check.HTTPResult) error {
+func writeHTTPResponse(out io.Writer, resp check.HTTPResults) error {
 	_, err := fmt.Fprintf(
 		out,
 		"Server: %s\nStatus: %d\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",

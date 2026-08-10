@@ -10,24 +10,28 @@ The CLI currently supports:
 - TCP connectivity checks
 - TLS certificate inspection
 - DNS lookups
+- creating a config.toml
+- adding servers to config
+- running health checks on servers in your config
 
 ## Usage
 
 ```bash
-homelabctl check http https://example.com
-
+homelabctl check http --follow-redirects=false example.com
 homelabctl check tcp 127.0.0.1:0
-
-homelabctl check tls example.com:443
-
+homelabctl check tls --timeout 2s example.com:443
 homelabctl check dns example.com
+
+homelabctl config init
+homelabctl config add <server>
+homelabctl check <server>
 ```
 
 Every check will return the health, latency, and the time the check was performed. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks.
 
 ## Project status
 
-The networking checks are still under development. Configuration, inventories, concurrency, and the TUI will all be added in later stages.
+The network checks are working as expected. Configuration, inventories, and concurrency are in development. The TUI be added in a later stage.
 
 ## Roadmap
 
@@ -64,8 +68,9 @@ Planned commands:
 
 ```bash
 homelabctl list
-homelabctl check --service GitLab
-homelabctl config add Gitlab
+homelabctl check service gitLab
+homelabctl config add gitlab
+homelabctl -v check service gitlab
 ```
 
 ### Phase 4: Concurrent checks

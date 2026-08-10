@@ -19,10 +19,11 @@ type CheckServiceCmd struct {
 	port    int
 }
 
-func parseCheckService(args []string, opts GlobalOption) (Command, error) {
+func parseCheckService(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
 	cmd := &CheckServiceCmd{}
 
 	flags := flag.NewFlagSet("check service", flag.ContinueOnError)
+	flags.SetOutput(errOut)
 
 	flags.DurationVar(
 		&cmd.timeout,
@@ -58,14 +59,19 @@ func parseCheckService(args []string, opts GlobalOption) (Command, error) {
 	}
 
 	checkService := CheckServiceCmd{
-		fqdn: server.FQDN,
-		ip:   server.IP,
-		port: server.Port,
+		timeout: cmd.timeout,
+		fqdn:    server.FQDN,
+		ip:      server.IP,
+		port:    server.Port,
 	}
 	return &checkService, nil
 }
 
 func (c *CheckServiceCmd) Validate() error {
+	if c.timeout <= 0 {
+		return errors.New("timeout must be greater than 0")
+	}
+
 	if c.fqdn == "" {
 		return errors.New("fqdn cannot be blank. Check config")
 	}
@@ -82,9 +88,10 @@ func (c *CheckServiceCmd) Validate() error {
 
 func (c *CheckServiceCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.CheckService{
-		FQDN: c.fqdn,
-		IP:   c.ip,
-		Port: c.port,
+		FQDN:    c.fqdn,
+		IP:      c.ip,
+		Port:    c.port,
+		Timeout: c.timeout,
 	}
 	results, checkErr := service.Check(ctx)
 	writeErr := writeService(streams.Out, results)

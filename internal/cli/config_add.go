@@ -25,28 +25,16 @@ func (c *ConfigAddCmd) Validate() error {
 }
 
 func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
-
-	cfg, err := config.Load(c.ConfigPath)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	if cfg.Servers == nil {
-		cfg.Servers = make(map[string]config.Server)
-	}
-
-	if _, exists := cfg.Servers[c.ServerName]; exists {
-		return fmt.Errorf("server %q already exists", c.ServerName)
-	}
-
 	newServer, err := promptServer(streams.In, streams.Out, c.ServerName)
 	if err != nil {
 		return err
 	}
 
-	cfg.Servers[c.ServerName] = newServer
-
-	if err := config.ConfigAdd(c.ServerName, c.ConfigPath); err != nil {
+	if err := config.AddServer(
+		c.ConfigPath,
+		c.ServerName,
+		newServer,
+	); err != nil {
 		return err
 	}
 
