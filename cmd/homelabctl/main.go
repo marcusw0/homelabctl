@@ -22,16 +22,17 @@ func main() {
 			streams.ErrOut,
 			"Usage: homelabctl check <http|tcp|tls|dns> <target>",
 		)
+		os.Exit(2)
 	}
 
 	parsed, err := cli.Parse(os.Args[1:], streams.ErrOut)
 	if err != nil {
-		fmt.Fprintf(streams.ErrOut, "ERORR %v", err)
+		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
 		os.Exit(2)
 	}
 
 	if err := parsed.Validate(); err != nil {
-		fmt.Fprintf(streams.ErrOut, "ERORR %v", err)
+		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -42,9 +43,8 @@ func main() {
 	defer cancel()
 
 	if err := parsed.Run(ctx, streams); err != nil {
-		fmt.Fprintf(streams.ErrOut, "ERORR %v", err)
+		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
 
-	os.Exit(0)
 }

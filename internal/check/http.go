@@ -12,8 +12,7 @@ type HTTP struct {
 	FollowRedirect bool
 }
 
-// HTTPResult contains the useful parts of an HTTP health check.
-type HTTPResult struct {
+type HTTPResults struct {
 	Target     string
 	Status     string
 	StatusCode int
@@ -26,14 +25,14 @@ type HTTPResult struct {
 func (h *HTTP) Check(
 	ctx context.Context,
 	target string,
-) (HTTPResult, error) {
+) (HTTPResults, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
-		result := HTTPResult{
+		result := HTTPResults{
 			Target:    target,
 			Healthy:   false,
 			CheckedAt: time.Now(),
@@ -55,7 +54,7 @@ func (h *HTTP) Check(
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		result := HTTPResult{
+		result := HTTPResults{
 			Target:    target,
 			Latency:   time.Since(start),
 			Healthy:   false,
@@ -66,7 +65,7 @@ func (h *HTTP) Check(
 
 	defer resp.Body.Close()
 
-	result := HTTPResult{
+	result := HTTPResults{
 		Target:     target,
 		StatusCode: resp.StatusCode,
 		Latency:    time.Since(start),

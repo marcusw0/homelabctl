@@ -11,16 +11,17 @@ import (
 )
 
 type CheckServiceResults struct {
-	HTTP HTTPResult
+	HTTP HTTPResults
 	DNS  DNSResults
 	TCP  TCPResults
 	TLS  TLSResults
 }
 
 type CheckService struct {
-	FQDN string
-	IP   string
-	Port int
+	FQDN    string
+	IP      string
+	Port    int
+	Timeout time.Duration
 }
 
 func (c *CheckService) Check(
@@ -30,7 +31,7 @@ func (c *CheckService) Check(
 	var errs []error
 
 	httpCheck := HTTP{
-		Timeout:        5 * time.Second,
+		Timeout:        c.Timeout,
 		ExpectedStatus: http.StatusOK,
 		FollowRedirect: true,
 	}
@@ -40,33 +41,33 @@ func (c *CheckService) Check(
 	)
 	httpResp, err := httpCheck.Check(ctx, httpTarget)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("HTTP check: %w\n", err))
+		errs = append(errs, fmt.Errorf("HTTP check: %w", err))
 	}
 
 	dns := DNS{
-		Timeout: 3 * time.Second,
+		Timeout: c.Timeout,
 	}
 	dnsResp, err := dns.Check(ctx, c.FQDN)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("DNS check: %w\n", err))
+		errs = append(errs, fmt.Errorf("DNS check: %w", err))
 	}
 
 	tcp := TCP{
 		Port:    c.Port,
-		Timeout: 3 * time.Second,
+		Timeout: c.Timeout,
 	}
 	tcpResp, err := tcp.Check(ctx, c.IP)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("TCP check: %w\n", err))
+		errs = append(errs, fmt.Errorf("TCP check: %w", err))
 	}
 
 	tls := TLS{
 		Port:    c.Port,
-		Timeout: 5 * time.Second,
+		Timeout: c.Timeout,
 	}
 	tlsResp, err := tls.Check(ctx, c.FQDN)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("TLS check: %w\n", err))
+		errs = append(errs, fmt.Errorf("TLS check: %w", err))
 	}
 
 	combined := CheckServiceResults{
@@ -74,10 +75,6 @@ func (c *CheckService) Check(
 		DNS:  dnsResp,
 		TCP:  tcpResp,
 		TLS:  tlsResp,
-	}
-
-	if len(errs) == 0 && !combined.Healthy() {
-		errs = append(errs, errors.New("one or more checks are unhealthy"))
 	}
 
 	return combined, errors.Join(errs...)

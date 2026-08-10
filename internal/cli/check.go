@@ -3,24 +3,25 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 )
 
-func parseCheck(args []string, opts GlobalOption) (Command, error) {
+func parseCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
 	if len(args) < 1 {
 		return nil, errors.New("Expected subcommand: dns|http|tcp|tls|service")
 	}
 
 	switch args[0] {
 	case "dns":
-		return parseDNSCheck(args[1:])
+		return parseDNSCheck(errOut, args[1:], opts)
 	case "http":
-		return parseHTTPCheck(args[1:])
+		return parseHTTPCheck(errOut, args[1:], opts)
 	case "tcp":
-		return parseTCPCheck(args[1:])
+		return parseTCPCheck(errOut, args[1:], opts)
 	case "tls":
-		return parseTLSCheck(args[1:])
+		return parseTLSCheck(errOut, args[1:], opts)
 	case "service":
-		return parseCheckService(args[1:], opts)
+		return parseCheckService(errOut, args[1:], opts)
 	default:
 		if len(args) != 1 {
 			return nil, errors.New("check accepts exactly one server name")

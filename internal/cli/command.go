@@ -59,12 +59,12 @@ func Parse(args []string, errOut io.Writer) (Command, error) {
 	args = flags.Args()
 
 	if len(args) == 0 {
-		return nil, errors.New("Expected a command: check|config|list\n")
+		return nil, errors.New("Expected a command: check|config|list")
 	}
 
 	switch args[0] {
 	case "check":
-		return parseCheck(args[1:], opts)
+		return parseCheck(errOut, args[1:], opts)
 	case "config":
 		return parseConfig(args[1:], opts)
 	// case "list":
