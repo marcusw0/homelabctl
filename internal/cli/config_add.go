@@ -25,7 +25,7 @@ func (c *ConfigAddCmd) Validate() error {
 }
 
 func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
-	newServer, err := promptServer(streams.In, streams.Out, c.ServerName)
+	newServer, err := promptServer(streams.In, streams.ErrOut, c.ServerName)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
 
 	if _, err := fmt.Fprintf(
 		streams.Out,
-		"%s added to config",
+		"%s added to config\n",
 		c.ServerName,
 	); err != nil {
 		return err

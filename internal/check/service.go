@@ -10,23 +10,21 @@ import (
 	"time"
 )
 
-type CheckServiceResults struct {
+type ServiceResults struct {
 	HTTP HTTPResults
 	DNS  DNSResults
 	TCP  TCPResults
 	TLS  TLSResults
 }
 
-type CheckService struct {
+type Service struct {
 	FQDN    string
 	IP      string
 	Port    int
 	Timeout time.Duration
 }
 
-func (c *CheckService) Check(
-	ctx context.Context,
-) (CheckServiceResults, error) {
+func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
 
 	var errs []error
 
@@ -70,7 +68,7 @@ func (c *CheckService) Check(
 		errs = append(errs, fmt.Errorf("TLS check: %w", err))
 	}
 
-	combined := CheckServiceResults{
+	combined := ServiceResults{
 		HTTP: httpResp,
 		DNS:  dnsResp,
 		TCP:  tcpResp,
@@ -80,7 +78,7 @@ func (c *CheckService) Check(
 	return combined, errors.Join(errs...)
 }
 
-func (r CheckServiceResults) Healthy() bool {
+func (r ServiceResults) Healthy() bool {
 	return r.HTTP.Healthy &&
 		r.DNS.Healthy &&
 		r.TCP.Healthy &&

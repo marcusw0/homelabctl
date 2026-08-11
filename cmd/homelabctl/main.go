@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -27,6 +29,9 @@ func main() {
 
 	parsed, err := cli.Parse(os.Args[1:], streams.ErrOut)
 	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
 		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
 		os.Exit(2)
 	}

@@ -6,7 +6,12 @@ import (
 	"io"
 )
 
-func parseCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
+func parseCheck(
+	errOut io.Writer,
+	args []string,
+	opts GlobalOption,
+) (Command, error) {
+
 	if len(args) < 1 {
 		return nil, errors.New("Expected subcommand: dns|http|tcp|tls|service")
 	}
@@ -21,7 +26,7 @@ func parseCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, er
 	case "tls":
 		return parseTLSCheck(errOut, args[1:], opts)
 	case "service":
-		return parseCheckService(errOut, args[1:], opts)
+		return parseServiceCheck(errOut, args[1:], opts)
 	default:
 		if len(args) != 1 {
 			return nil, errors.New("check accepts exactly one server name")

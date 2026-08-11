@@ -15,13 +15,19 @@ type TCPCheckCmd struct {
 	Target  string
 	Port    int
 	Timeout time.Duration
+	Verbose bool
 }
 
-func parseTCPCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
+func parseTCPCheck(
+	errOut io.Writer,
+	args []string,
+	opts GlobalOption,
+) (Command, error) {
 	cmd := &TCPCheckCmd{}
 
 	flags := flag.NewFlagSet("check tcp", flag.ContinueOnError)
 	flags.SetOutput(errOut)
+	addGlobalFlags(flags, &opts)
 
 	flags.IntVar(
 		&cmd.Port,
@@ -40,6 +46,7 @@ func parseTCPCheck(errOut io.Writer, args []string, opts GlobalOption) (Command,
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
+	cmd.Verbose = opts.Verbose
 
 	if flags.NArg() == 1 {
 		cmd.Target = flags.Arg(0)
@@ -75,33 +82,40 @@ func (c *TCPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 
 	resp, respErr := service.Check(ctx, c.Target)
-	if respErr != nil {
-		_, writeErr := fmt.Fprintf(
-			streams.Out,
-			"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",
-			resp.Target,
-			resp.Latency.Milliseconds(),
-			resp.Healthy,
-			resp.CheckedAt.Local(),
-			resp.Message,
-		)
+	writeErr := writeTCPResponse(streams.Out, resp, c.Verbose)
+	if writeErr != nil {
 		return errors.Join(respErr, writeErr)
 	}
-
-	if err := writeTCPResponse(streams.Out, resp); err != nil {
-		return err
-	}
-	return nil
+	return respErr
 }
 
-func writeTCPResponse(out io.Writer, resp check.TCPResults) error {
+func writeTCPResponse(
+	out io.Writer,
+	resp check.TCPResults,
+	verbose bool,
+) error {
+	if !verbose {
+		_, err := fmt.Fprintf(
+			out,
+			"Host: %s\nHealthy: %t\nMessage: %q\n",
+			resp.Target,
+			resp.Healthy,
+			resp.Message,
+		)
+		return err
+	}
+
 	_, err := fmt.Fprintf(
 		out,
-		"Host: %s\nLatency: %dms\nHealthy: %t\nChecked At: %v\nMessage: %q\n",
+		"Host: %s\n"+
+			"Latency: %s\n"+
+			"Healthy: %t\n"+
+			"Checked At: %s\n"+
+			"Message: %q\n",
 		resp.Target,
-		resp.Latency.Milliseconds(),
+		formatDuration(resp.Latency),
 		resp.Healthy,
-		resp.CheckedAt.Local(),
+		formatTimestamp(resp.CheckedAt),
 		resp.Message,
 	)
 	if err != nil {
