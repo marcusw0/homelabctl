@@ -26,7 +26,7 @@ func (c *ConfigInitCmd) Run(ctx context.Context, streams IOStreams) error {
 
 	if _, err := fmt.Fprintf(
 		streams.Out,
-		"config initialized at %s",
+		"config initialized at %s\n",
 		c.ConfigPath,
 	); err != nil {
 		return err

@@ -14,13 +14,20 @@ import (
 type DNSCheckCmd struct {
 	Target  string
 	Timeout time.Duration
+	Verbose bool
 }
 
-func parseDNSCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
+func parseDNSCheck(
+	errOut io.Writer,
+	args []string,
+	opts GlobalOption,
+) (Command, error) {
+
 	cmd := &DNSCheckCmd{}
 
 	flags := flag.NewFlagSet("check dns", flag.ContinueOnError)
 	flags.SetOutput(errOut)
+	addGlobalFlags(flags, &opts)
 
 	flags.DurationVar(
 		&cmd.Timeout,
@@ -32,6 +39,7 @@ func parseDNSCheck(errOut io.Writer, args []string, opts GlobalOption) (Command,
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
+	cmd.Verbose = opts.Verbose
 
 	if flags.NArg() == 1 {
 		cmd.Target = flags.Arg(0)
@@ -63,34 +71,41 @@ func (c *DNSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 
 	resp, respErr := service.Check(ctx, c.Target)
-	if respErr != nil {
-		_, writeErr := fmt.Fprintf(
-			out,
-			"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
-			resp.Target,
-			resp.Response,
-			resp.Latency.Milliseconds(),
-			resp.Healthy,
-			resp.CheckedAt.Local(),
-		)
+	writeErr := writeDNSResponse(out, resp, c.Verbose)
+	if writeErr != nil {
 		return errors.Join(respErr, writeErr)
 	}
-
-	if err := writeDNSResponse(out, resp); err != nil {
-		return err
-	}
-	return nil
+	return respErr
 }
 
-func writeDNSResponse(out io.Writer, resp check.DNSResults) error {
+func writeDNSResponse(
+	out io.Writer,
+	resp check.DNSResults,
+	verbose bool,
+) error {
+	if !verbose {
+		_, err := fmt.Fprintf(
+			out,
+			"Host: %s\nResponse: %v\nHealthy: %t\n",
+			resp.Target,
+			resp.Response,
+			resp.Healthy,
+		)
+		return err
+	}
+
 	if _, err := fmt.Fprintf(
 		out,
-		"Host: %s\nResponse: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		"Host: %s\n"+
+			"Response: %v\n"+
+			"Latency: %s\n"+
+			"Healthy: %t\n"+
+			"Checked At: %s\n",
 		resp.Target,
 		resp.Response,
-		resp.Latency.Milliseconds(),
+		formatDuration(resp.Latency),
 		resp.Healthy,
-		resp.CheckedAt.Local(),
+		formatTimestamp(resp.CheckedAt),
 	); err != nil {
 		return err
 	}

@@ -18,11 +18,16 @@ type TLSCheckCmd struct {
 	Verbose bool
 }
 
-func parseTLSCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
+func parseTLSCheck(
+	errOut io.Writer,
+	args []string,
+	opts GlobalOption,
+) (Command, error) {
 	cmd := &TLSCheckCmd{}
 
 	flags := flag.NewFlagSet("check tls", flag.ContinueOnError)
 	flags.SetOutput(errOut)
+	addGlobalFlags(flags, &opts)
 
 	flags.IntVar(
 		&cmd.Port,
@@ -38,16 +43,10 @@ func parseTLSCheck(errOut io.Writer, args []string, opts GlobalOption) (Command,
 		"timeout duration",
 	)
 
-	flags.BoolVar(
-		&cmd.Verbose,
-		"verbose",
-		false,
-		"verbose output",
-	)
-
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
+	cmd.Verbose = opts.Verbose
 
 	if flags.NArg() == 1 {
 		cmd.Target = flags.Arg(0)
@@ -80,54 +79,65 @@ func (c *TLSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.TLS{
 		Port:    c.Port,
 		Timeout: c.Timeout,
-		Verbose: c.Verbose,
 	}
 
 	resp, respErr := service.Check(ctx, c.Target)
-	if respErr != nil {
-		_, writeErr := fmt.Fprintf(
-			streams.Out,
-			"Host: %s\nHealthy: %t\nChecked At: %v\n",
-			resp.Target,
-			resp.Healthy,
-			resp.CheckedAt.Local(),
-		)
+	writeErr := writeTLSResponse(streams.Out, resp, c.Verbose)
+	if writeErr != nil {
 		return errors.Join(respErr, writeErr)
 	}
-
-	if err := writeTLSResponse(streams.Out, resp); err != nil {
-		return err
-	}
-	return nil
+	return respErr
 }
 
-func writeTLSResponse(out io.Writer, resp check.TLSResults) error {
+func writeTLSResponse(
+	out io.Writer,
+	resp check.TLSResults,
+	verbose bool,
+) error {
+	if !verbose {
+		_, err := fmt.Fprintf(
+			out,
+			"Host: %s\nHealthy: %t\n",
+			resp.Target,
+			resp.Healthy,
+		)
+		return err
+	}
+
+	if resp.After.IsZero() {
+		_, err := fmt.Fprintf(
+			out,
+			"Host: %s\nHealthy: %t\nChecked At: %s\n",
+			resp.Target,
+			resp.Healthy,
+			formatTimestamp(resp.CheckedAt),
+		)
+		return err
+	}
+
 	_, err := fmt.Fprintf(
 		out,
-		"Host: %s\nSubject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nExpires: %v\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		"Host: %s\n"+
+			"Subject: %s\n"+
+			"Issuer: %s\n"+
+			"Name: %s\n"+
+			"NotAfter: %s\n"+
+			"Expires: %v\n"+
+			"Latency: %s\n"+
+			"Healthy: %t\n"+
+			"Checked At: %s\n",
 		resp.Target,
 		resp.Subject,
 		resp.Issuer,
 		resp.Names,
-		resp.After,
+		formatTimestamp(resp.After),
 		formatExpiry(resp.Expires),
-		resp.Latency.Milliseconds(),
+		formatDuration(resp.Latency),
 		resp.Healthy,
-		resp.CheckedAt.Local(),
+		formatTimestamp(resp.CheckedAt),
 	)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func formatExpiry(d time.Duration) string {
-	if d < 0 {
-		return "EXPIRED"
-	}
-
-	days := int(d / (24 * time.Hour))
-	hours := int((d % (24 * time.Hour)) / time.Hour)
-
-	return fmt.Sprintf("%dd %dh", days, hours)
 }

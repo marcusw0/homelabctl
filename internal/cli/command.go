@@ -26,31 +26,40 @@ type GlobalOption struct {
 	Verbose    bool
 }
 
-func Parse(args []string, errOut io.Writer) (Command, error) {
-
-	opts := GlobalOption{}
-
-	cfgDir, err := config.DefaultPath()
-	if err != nil {
-		return nil, err
-	}
-
-	flags := flag.NewFlagSet("homelabctl", flag.ContinueOnError)
-	flags.SetOutput(errOut)
-
+func addGlobalFlags(flags *flag.FlagSet, opts *GlobalOption) {
 	flags.StringVar(
 		&opts.ConfigPath,
 		"config",
-		cfgDir,
+		opts.ConfigPath,
 		"path to config file",
 	)
 
 	flags.BoolVar(
 		&opts.Verbose,
 		"v",
-		false,
+		opts.Verbose,
 		"verbose output",
 	)
+
+	flags.BoolVar(
+		&opts.Verbose,
+		"verbose",
+		opts.Verbose,
+		"verbose output",
+	)
+}
+
+func Parse(args []string, errOut io.Writer) (Command, error) {
+
+	cfgDir, err := config.DefaultPath()
+	if err != nil {
+		return nil, err
+	}
+	opts := GlobalOption{ConfigPath: cfgDir}
+
+	flags := flag.NewFlagSet("homelabctl", flag.ContinueOnError)
+	flags.SetOutput(errOut)
+	addGlobalFlags(flags, &opts)
 
 	if err := flags.Parse(args); err != nil {
 		return nil, err
@@ -66,7 +75,7 @@ func Parse(args []string, errOut io.Writer) (Command, error) {
 	case "check":
 		return parseCheck(errOut, args[1:], opts)
 	case "config":
-		return parseConfig(args[1:], opts)
+		return parseConfig(errOut, args[1:], opts)
 	// case "list":
 	// 	return parseList(args[1:])
 	default:

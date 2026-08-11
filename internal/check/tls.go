@@ -11,7 +11,6 @@ import (
 type TLS struct {
 	Port    int
 	Timeout time.Duration
-	Verbose bool
 }
 
 type TLSResults struct {
@@ -19,17 +18,14 @@ type TLSResults struct {
 	Subject   string
 	Issuer    string
 	Names     []string
-	After     string
+	After     time.Time
 	Expires   time.Duration
 	Healthy   bool
 	Latency   time.Duration
 	CheckedAt time.Time
 }
 
-func (c *TLS) Check(
-	ctx context.Context,
-	target string,
-) (TLSResults, error) {
+func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
 
 	config := tls.Config{ServerName: target}
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
@@ -87,7 +83,7 @@ func (c *TLS) Check(
 		Subject:   cert.Subject.String(),
 		Issuer:    cert.Issuer.String(),
 		Names:     cert.DNSNames,
-		After:     cert.NotAfter.String(),
+		After:     cert.NotAfter,
 		Expires:   expiresIn,
 		Healthy:   true,
 		Latency:   time.Since(start),

@@ -19,13 +19,19 @@ type HTTPCheckCmd struct {
 	Timeout        time.Duration
 	ExpectedStatus int
 	FollowRedirect bool
+	Verbose        bool
 }
 
-func parseHTTPCheck(errOut io.Writer, args []string, opts GlobalOption) (Command, error) {
+func parseHTTPCheck(
+	errOut io.Writer,
+	args []string,
+	opts GlobalOption,
+) (Command, error) {
 	cmd := &HTTPCheckCmd{}
 
 	flags := flag.NewFlagSet("check http", flag.ContinueOnError)
 	flags.SetOutput(errOut)
+	addGlobalFlags(flags, &opts)
 
 	flags.DurationVar(
 		&cmd.Timeout,
@@ -51,6 +57,7 @@ func parseHTTPCheck(errOut io.Writer, args []string, opts GlobalOption) (Command
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
+	cmd.Verbose = opts.Verbose
 
 	if flags.NArg() == 1 {
 		cmd.Target = flags.Arg(0)
@@ -96,32 +103,62 @@ func (c *HTTPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 
 	resp, respErr := service.Check(ctx, c.Target)
-	if respErr != nil {
-		_, writeErr := fmt.Fprintf(
-			streams.Out,
-			"FAILED\nHost: %s\nHealthy: %t\nChecked At: %v\n",
-			resp.Target,
-			resp.Healthy,
-			resp.CheckedAt.Local(),
-		)
+	writeErr := writeHTTPResponse(streams.Out, resp, c.Verbose)
+	if writeErr != nil {
 		return errors.Join(respErr, writeErr)
 	}
-
-	if err := writeHTTPResponse(streams.Out, resp); err != nil {
-		return err
-	}
-	return nil
+	return respErr
 }
 
-func writeHTTPResponse(out io.Writer, resp check.HTTPResults) error {
+func writeHTTPResponse(
+	out io.Writer,
+	resp check.HTTPResults,
+	verbose bool,
+) error {
+	if !verbose {
+		if resp.StatusCode == 0 {
+			_, err := fmt.Fprintf(
+				out,
+				"Server: %s\nHealthy: %t\n",
+				resp.Target,
+				resp.Healthy,
+			)
+			return err
+		}
+
+		_, err := fmt.Fprintf(
+			out,
+			"Server: %s\nStatus: %d\nHealthy: %t\n",
+			resp.Target,
+			resp.StatusCode,
+			resp.Healthy,
+		)
+		return err
+	}
+
+	if resp.StatusCode == 0 {
+		_, err := fmt.Fprintf(
+			out,
+			"Server: %s\nHealthy: %t\nChecked At: %s\n",
+			resp.Target,
+			resp.Healthy,
+			formatTimestamp(resp.CheckedAt),
+		)
+		return err
+	}
+
 	_, err := fmt.Fprintf(
 		out,
-		"Server: %s\nStatus: %d\nLatency: %dms\nHealthy: %t\nChecked At: %v\n",
+		"Server: %s\n"+
+			"Status: %d\n"+
+			"Latency: %s\n"+
+			"Healthy: %t\n"+
+			"Checked At: %s\n",
 		resp.Target,
 		resp.StatusCode,
-		resp.Latency.Milliseconds(),
+		formatDuration(resp.Latency),
 		resp.Healthy,
-		resp.CheckedAt.Local(),
+		formatTimestamp(resp.CheckedAt),
 	)
 	if err != nil {
 		return err
