@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
@@ -24,4 +26,15 @@ func DefaultPath() (string, error) {
 	}
 
 	return filepath.Join(configDir, "homelabctl", "config.toml"), nil
+}
+
+func Load(cfgPath string) (Config, error) {
+	var cfg Config
+
+	_, err := toml.DecodeFile(cfgPath, &cfg)
+	if err != nil {
+		return cfg, fmt.Errorf("load config: %w", err)
+	}
+
+	return cfg, nil
 }

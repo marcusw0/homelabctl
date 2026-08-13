@@ -76,8 +76,8 @@ func Parse(args []string, errOut io.Writer) (Command, error) {
 		return parseCheck(errOut, args[1:], opts)
 	case "config":
 		return parseConfig(errOut, args[1:], opts)
-	// case "list":
-	// 	return parseList(args[1:])
+	case "list":
+		return parseList(errOut, args[1:], opts)
 	default:
 		return nil, fmt.Errorf("Unknown command: %q", args[0])
 	}
