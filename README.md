@@ -12,6 +12,7 @@ The CLI currently supports:
 - DNS lookups
 - creating a config.toml
 - adding servers to config
+- listing servers in config
 - running health checks on servers in your config
 
 ## Usage
@@ -24,7 +25,8 @@ homelabctl check dns example.com
 
 homelabctl config init
 homelabctl config add <server>
-homelabctl check <server>
+homelabctl list
+homelabctl check service <server>
 ```
 
 Every check will return the health, latency, and the time the check was performed. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks.
@@ -61,7 +63,7 @@ The network checks are working as expected. Configuration, inventories, and conc
 - [x] Command-line flags
 - [ ] Environment variables
 - [ ] Built-in defaults
-- [ ] Add commands for listing and checking configured services
+- [x] Add commands for listing and checking configured services
 - [ ] Validate service names, targets, ports, durations, check types, and runbooks
 
 Planned commands:
@@ -111,4 +113,3 @@ homelabctl dashboard
 - Produce distributable Linux binaries
 - Add a Hyprland shortcut for opening the dashboard
 - Document installation and release procedures
-
