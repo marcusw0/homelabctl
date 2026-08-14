@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 )
@@ -11,7 +12,34 @@ func parseCheck(
 	args []string,
 	opts GlobalOption,
 ) (Command, error) {
+	var checkAll bool
 
+	if len(args) < 1 {
+		return nil, errors.New("Expected subcommand: dns|http|tcp|tls|service")
+	}
+
+	flags := flag.NewFlagSet("check", flag.ContinueOnError)
+	flags.SetOutput(errOut)
+	addGlobalFlags(flags, &opts)
+
+	flags.BoolVar(
+		&checkAll,
+		"all",
+		false,
+		"check all services",
+	)
+
+	if err := flags.Parse(args); err != nil {
+		return nil, err
+	}
+
+	if checkAll == true {
+		return &AllCmd{
+			ConfigPath: opts.ConfigPath,
+		}, nil
+	}
+
+	args = flags.Args()
 	if len(args) < 1 {
 		return nil, errors.New("Expected subcommand: dns|http|tcp|tls|service")
 	}
