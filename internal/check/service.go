@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -25,8 +26,14 @@ type Service struct {
 }
 
 func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
-
-	var errs []error
+	var (
+		results ServiceResults
+		httpErr error
+		dnsErr  error
+		tcpErr  error
+		tlsErr  error
+		wg      sync.WaitGroup
+	)
 
 	httpCheck := HTTP{
 		Timeout:        c.Timeout,
@@ -37,45 +44,50 @@ func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
 		c.FQDN,
 		strconv.Itoa(c.Port),
 	)
-	httpResp, err := httpCheck.Check(ctx, httpTarget)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("HTTP check: %w", err))
-	}
-
 	dns := DNS{
 		Timeout: c.Timeout,
 	}
-	dnsResp, err := dns.Check(ctx, c.FQDN)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("DNS check: %w", err))
-	}
-
 	tcp := TCP{
 		Port:    c.Port,
 		Timeout: c.Timeout,
 	}
-	tcpResp, err := tcp.Check(ctx, c.IP)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("TCP check: %w", err))
-	}
-
 	tls := TLS{
 		Port:    c.Port,
 		Timeout: c.Timeout,
 	}
-	tlsResp, err := tls.Check(ctx, c.FQDN)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("TLS check: %w", err))
-	}
 
-	combined := ServiceResults{
-		HTTP: httpResp,
-		DNS:  dnsResp,
-		TCP:  tcpResp,
-		TLS:  tlsResp,
-	}
+	wg.Add(4)
+	go func() {
+		defer wg.Done()
+		results.HTTP, httpErr = httpCheck.Check(ctx, httpTarget)
+		if httpErr != nil {
+			httpErr = fmt.Errorf("HTTP check: %w", httpErr)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		results.DNS, dnsErr = dns.Check(ctx, c.FQDN)
+		if dnsErr != nil {
+			dnsErr = fmt.Errorf("DNS check: %w", dnsErr)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		results.TCP, tcpErr = tcp.Check(ctx, c.IP)
+		if tcpErr != nil {
+			tcpErr = fmt.Errorf("TCP check: %w", tcpErr)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		results.TLS, tlsErr = tls.Check(ctx, c.FQDN)
+		if tlsErr != nil {
+			tlsErr = fmt.Errorf("TLS check: %w", tlsErr)
+		}
+	}()
+	wg.Wait()
 
-	return combined, errors.Join(errs...)
+	return results, errors.Join(httpErr, dnsErr, tcpErr, tlsErr)
 }
 
 func (r ServiceResults) Healthy() bool {
