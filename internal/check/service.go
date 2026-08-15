@@ -35,6 +35,8 @@ func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
 		wg      sync.WaitGroup
 	)
 
+	target := net.JoinHostPort(c.IP, strconv.Itoa(c.Port))
+
 	httpCheck := HTTP{
 		Timeout:        c.Timeout,
 		ExpectedStatus: http.StatusOK,
@@ -48,7 +50,6 @@ func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
 		Timeout: c.Timeout,
 	}
 	tcp := TCP{
-		Port:    c.Port,
 		Timeout: c.Timeout,
 	}
 	tls := TLS{
@@ -73,7 +74,7 @@ func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
 	}()
 	go func() {
 		defer wg.Done()
-		results.TCP, tcpErr = tcp.Check(ctx, c.IP)
+		results.TCP, tcpErr = tcp.Check(ctx, target)
 		if tcpErr != nil {
 			tcpErr = fmt.Errorf("TCP check: %w", tcpErr)
 		}

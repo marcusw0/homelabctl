@@ -53,12 +53,12 @@ func parseDNSCheck(
 }
 
 func (c *DNSCheckCmd) Validate() error {
-	if c.Target == "" {
-		return errors.New("Need to specify destination to check")
-	}
-
 	if c.Timeout <= 0 {
 		return errors.New("timeout must be greater than 0")
+	}
+
+	if err := check.ValidateHostname(c.Target); err != nil {
+		return err
 	}
 
 	return nil

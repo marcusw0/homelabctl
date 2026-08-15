@@ -81,17 +81,18 @@ func (c *ServiceCheckCmd) Validate() error {
 		return errors.New("timeout must be greater than 0")
 	}
 
-	if c.fqdn == "" {
-		return errors.New("fqdn cannot be blank. Check config")
+	if err := check.ValidateHostname(c.fqdn); err != nil {
+		return err
 	}
 
-	if c.ip == "" {
-		return errors.New("ip cannot be blank. Check config")
+	if err := check.ValidateIP(c.ip); err != nil {
+		return err
 	}
 
-	if c.port <= 0 || c.port > 65535 {
-		return errors.New("port number must be any number from 1-65535")
+	if err := check.ValidatePort(c.port); err != nil {
+		return err
 	}
+
 	return nil
 }
 

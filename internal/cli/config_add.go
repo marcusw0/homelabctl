@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
 )
 
@@ -70,6 +71,11 @@ func promptServer(
 	if _, err := fmt.Fscan(in, &newServer.FQDN); err != nil {
 		return newServer, fmt.Errorf("read FQDN: %w", err)
 	}
+
+	if err := check.ValidateHostname(newServer.FQDN); err != nil {
+		return newServer, err
+	}
+
 	if _, err := fmt.Fprintf(
 		out,
 		"Enter %s's IP: ",
@@ -84,6 +90,11 @@ func promptServer(
 	if _, err := fmt.Fscan(in, &newServer.IP); err != nil {
 		return newServer, fmt.Errorf("read ip address: %w", err)
 	}
+
+	if err := check.ValidateIP(newServer.IP); err != nil {
+		return newServer, err
+	}
+
 	if _, err := fmt.Fprintf(
 		out,
 		"Enter a port number for %s: ",
@@ -99,10 +110,9 @@ func promptServer(
 		return newServer, fmt.Errorf("read port: %w", err)
 	}
 
-	if newServer.Port <= 0 || newServer.Port > 65535 {
-		return newServer, fmt.Errorf("port must be between 1 and 65535")
+	if err := check.ValidatePort(newServer.Port); err != nil {
+		return newServer, err
 	}
 
 	return newServer, nil
-
 }

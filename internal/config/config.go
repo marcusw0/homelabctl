@@ -1,11 +1,14 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/BurntSushi/toml"
+	"github.com/marcusw0/homelabctl/internal/check"
 )
 
 type Config struct {
@@ -36,5 +39,48 @@ func Load(cfgPath string) (Config, error) {
 		return cfg, fmt.Errorf("load config: %w", err)
 	}
 
-	return cfg, nil
+	return validateCfg(cfg)
+}
+
+func validateCfg(cfg Config) (Config, error) {
+	if len(cfg.Servers) == 0 {
+		return cfg, nil
+	}
+	var errs []error
+
+	names := make([]string, 0, len(cfg.Servers))
+	for name := range cfg.Servers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		server := cfg.Servers[name]
+		if err := check.ValidateHostname(server.FQDN); err != nil {
+			errs = append(errs, fmt.Errorf(
+				"server %q FQDN: %w",
+				name,
+				err,
+			),
+			)
+		}
+		if err := check.ValidateIP(server.IP); err != nil {
+			errs = append(errs, fmt.Errorf(
+				"server %q IP: %w",
+				name,
+				err,
+			),
+			)
+		}
+		if err := check.ValidatePort(server.Port); err != nil {
+			errs = append(errs, fmt.Errorf(
+				"server %q Port: %w",
+				name,
+				err,
+			),
+			)
+		}
+	}
+
+	return cfg, errors.Join(errs...)
 }

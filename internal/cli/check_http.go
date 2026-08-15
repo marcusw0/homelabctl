@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
@@ -71,10 +69,6 @@ func parseHTTPCheck(
 }
 
 func (c *HTTPCheckCmd) Validate() error {
-	if c.Target == "" {
-		return errors.New("Need to specify destination to check")
-	}
-
 	if c.Timeout <= 0 {
 		return errors.New("timeout must be greater than 0")
 	}
@@ -82,15 +76,13 @@ func (c *HTTPCheckCmd) Validate() error {
 	if c.ExpectedStatus < 100 || c.ExpectedStatus > 599 {
 		return errors.New("expected-status must be between 100 and 599")
 	}
-	if !strings.HasPrefix(c.Target, "https://") &&
-		!strings.HasPrefix(c.Target, "http://") {
-		c.Target = "https://" + c.Target
+
+	target, err := check.NormalizeHTTPURL(c.Target)
+	if err != nil {
+		return err
 	}
 
-	parsedURL, err := url.ParseRequestURI(c.Target)
-	if err != nil || parsedURL.Host == "" {
-		return fmt.Errorf("invalid HTTP target %q", c.Target)
-	}
+	c.Target = target
 
 	return nil
 }

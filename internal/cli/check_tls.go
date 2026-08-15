@@ -60,16 +60,16 @@ func parseTLSCheck(
 }
 
 func (c *TLSCheckCmd) Validate() error {
-	if c.Target == "" {
-		return errors.New("Expected destination")
-	}
-
 	if c.Timeout <= 0 {
 		return errors.New("timeout must be greater than 0")
 	}
 
-	if c.Port <= 0 || c.Port > 65535 {
-		return errors.New("port number must be any number from 1-65535")
+	if err := check.ValidatePort(c.Port); err != nil {
+		return err
+	}
+
+	if err := check.ValidateHostname(c.Target); err != nil {
+		return err
 	}
 
 	return nil

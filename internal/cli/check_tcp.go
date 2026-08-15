@@ -13,7 +13,6 @@ import (
 
 type TCPCheckCmd struct {
 	Target  string
-	Port    int
 	Timeout time.Duration
 	Verbose bool
 }
@@ -28,13 +27,6 @@ func parseTCPCheck(
 	flags := flag.NewFlagSet("check tcp", flag.ContinueOnError)
 	flags.SetOutput(errOut)
 	addGlobalFlags(flags, &opts)
-
-	flags.IntVar(
-		&cmd.Port,
-		"port",
-		443,
-		"port number",
-	)
 
 	flags.DurationVar(
 		&cmd.Timeout,
@@ -60,16 +52,12 @@ func parseTCPCheck(
 }
 
 func (c *TCPCheckCmd) Validate() error {
-	if c.Target == "" {
-		return errors.New("Expected destination")
-	}
-
 	if c.Timeout <= 0 {
 		return errors.New("timeout must be greater than 0")
 	}
 
-	if c.Port <= 0 || c.Port > 65535 {
-		return errors.New("port number must be any number from 1-65535")
+	if err := check.ValidateAddrPort(c.Target); err != nil {
+		return err
 	}
 
 	return nil
@@ -77,7 +65,6 @@ func (c *TCPCheckCmd) Validate() error {
 
 func (c *TCPCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.TCP{
-		Port:    c.Port,
 		Timeout: c.Timeout,
 	}
 
