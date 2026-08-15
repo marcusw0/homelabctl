@@ -6,34 +6,62 @@
 
 The CLI currently supports:
 
-- HTTP status and latency checks
-- TCP connectivity checks
-- TLS certificate inspection
+- HTTP health checks with expected status, redirect, and timeout controls
+- TCP connectivity checks for IPv4, IPv6, and hostnames
+- TLS certificate validation and expiration reporting
 - DNS lookups
-- creating a config.toml
-- adding servers to config
-- listing servers in config
-- running health checks on servers in your config
+- TOML-based service inventories
+- Creating, validating, adding, and listing configured services
+- Combined HTTP, DNS, TCP, and TLS service checks
+- Checking all enabled services concurrently
+- Verbose output with latency, timestamps, and protocol-specific details
 
 ## Usage
 
-```bash
-homelabctl check http --follow-redirects=false example.com
-homelabctl check tcp 127.0.0.1:0
-homelabctl check tls --timeout 2s example.com:443
-homelabctl check dns example.com
+Run individual network checks:
 
-homelabctl config init
-homelabctl config add <server>
-homelabctl list
-homelabctl check service <server>
+```bash
+homelabctl check http example.com
+homelabctl check http --expect-status 204 --follow-redirects=false example.com
+homelabctl check tcp --timeout 3s 127.0.0.1:80
+homelabctl check tcp example.com:443
+homelabctl check tcp '[::1]:443'
+homelabctl check tls --timeout 2s --port 443 example.com
+homelabctl check dns example.com
 ```
 
-Every check will return the health, latency, and the time the check was performed. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks.
+Manage the service inventory:
+
+```bash
+homelabctl config init
+homelabctl config add <service>
+homelabctl list
+```
+
+Check configured services:
+
+```bash
+homelabctl check service myserver
+homelabctl check service --timeout 10s myserver
+homelabctl check --all
+```
+
+Use global configuration and output options:
+
+```bash
+homelabctl --config ./homelabctl.toml list
+homelabctl --verbose check service gitlab
+```
+
+All checks report health and protocol-specific information. Use `-v` or `--verbose` for additional details such as latency and check timestamps.
+
+Every check will return the health. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks and verbose mode will give back the most detail.
 
 ## Project status
 
-The network checks are working as expected. Configuration, inventories, and concurrency are in development. The TUI be added in a later stage.
+The core CLI is functional. Homelabctl supports one-off network checks, validated TOML config, individual service checks, and concurrent checks across all enabled services.
+
+Development is currently focused on design and test hardening, including additional configuration, timeout, cancellation, and network tests. The interactive dashboard, runbook support, packaging, and release are planned for later phases.
 
 ## Roadmap
 
@@ -59,7 +87,7 @@ The network checks are working as expected. Configuration, inventories, and conc
 
 ### Phase 3: Configuration and CLI design — Complete
 
-- Load service definitions from TOML or JSON
+- Load service definitions from TOML
 - Command-line flags
 - Built-in defaults
 - Add commands for listing and checking configured services
@@ -73,22 +101,22 @@ homelabctl config add gitlab
 homelabctl -v check service gitlab
 ```
 
-### Phase 4: Concurrent checks — In progress
+### Phase 4: Concurrent checks — Complete
 
-- [x] Check multiple services concurrently
-- [x] Add homelabctl check --all
-- [x] Limit the number of simultaneous checks
-- [ ] Cancel outstanding checks when Ctrl+C is pressed
-- [ ] Verify concurrent behavior with Go's race detector
-- [ ] Validate service names, targets, ports, and check types
+- Check multiple services concurrently
+- Add homelabctl check --all
+- Limit the number of simultaneous checks
+- Cancel outstanding checks when Ctrl+C is pressed
+- Verify concurrent behavior with Go's race detector
+- Validate service hostnames, IP addresses, ports, and check types
 
-### Phase 5: Design and test hardening
+### Phase 5: Design and test hardening — In progress
 
-- Refactor shared check behavior where useful
-- Add dependency injection for network operations
-- Expand timeout and cancellation tests
-- Add configuration tests
-- Experiment with fuzz testing target and configuration parsing
+- [ ] Refactor shared check behavior where useful
+- [ ] Add dependency injection for network operations
+- [ ] Expand timeout and cancellation tests
+- [ ] Add configuration tests
+- [ ] Experiment with fuzz testing target and configuration parsing
 
 ### Phase 6: Runbooks and terminal interface
 

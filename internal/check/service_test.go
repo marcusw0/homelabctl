@@ -2,6 +2,8 @@ package check
 
 import (
 	"context"
+	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,11 +17,13 @@ import (
 func newTestService(t *testing.T) (*Service, func()) {
 	t.Helper()
 
-	server := httptest.NewTLSServer(http.HandlerFunc(
+	server := httptest.NewUnstartedServer(http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		},
 	))
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.StartTLS()
 
 	_, portText, err := net.SplitHostPort(server.Listener.Addr().String())
 	if err != nil {

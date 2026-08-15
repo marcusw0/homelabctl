@@ -3,12 +3,10 @@ package check
 import (
 	"context"
 	"net"
-	"strconv"
 	"time"
 )
 
 type TCP struct {
-	Port    int
 	Timeout time.Duration
 }
 
@@ -21,16 +19,12 @@ type TCPResults struct {
 }
 
 func (c *TCP) Check(ctx context.Context, target string) (TCPResults, error) {
-
 	var d net.Dialer
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 
-	port := strconv.Itoa(c.Port)
-	host := net.JoinHostPort(target, port)
-
 	start := time.Now()
-	conn, err := d.DialContext(ctx, "tcp", host)
+	conn, err := d.DialContext(ctx, "tcp", target)
 	if err != nil {
 		results := TCPResults{
 			Target:    target,

@@ -58,12 +58,21 @@ func (c *AllCmd) Validate() error {
 }
 
 func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
+	const maxConcurrent = 5
+
 	results := make(map[string]AllResults)
 
+	limit := make(chan struct{}, maxConcurrent)
 	workCh := make(chan serviceResult, len(c.Servers))
 
 	for name, server := range c.Servers {
+		limit <- struct{}{}
+
 		go func(name string, server ServiceCheckCmd) {
+			defer func() {
+				<-limit
+			}()
+
 			service := check.Service{
 				FQDN:    server.fqdn,
 				IP:      server.ip,
@@ -71,12 +80,12 @@ func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 				Timeout: server.timeout,
 			}
 			result, err := service.Check(ctx)
-			send := serviceResult{
+
+			workCh <- serviceResult{
 				name:   name,
 				result: result,
 				err:    err,
 			}
-			workCh <- send
 		}(name, server)
 	}
 

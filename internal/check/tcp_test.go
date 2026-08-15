@@ -3,6 +3,7 @@ package check
 import (
 	"context"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -20,12 +21,13 @@ func TestTCPCheck_Reachable(t *testing.T) {
 	defer server.Close()
 	port := server.Addr().(*net.TCPAddr).Port
 
+	target := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+
 	test := TCP{
-		Port:    port,
 		Timeout: time.Second,
 	}
 
-	got, err := test.Check(context.Background(), "127.0.0.1")
+	got, err := test.Check(context.Background(), target)
 
 	if err != nil {
 		t.Fatalf("Check() error = %v", err)
@@ -53,12 +55,13 @@ func TestTCPCheck_Unreachable(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	target := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+
 	test := TCP{
-		Port:    port,
 		Timeout: time.Second,
 	}
 
-	got, err := test.Check(context.Background(), "127.0.0.1")
+	got, err := test.Check(context.Background(), target)
 
 	if err != nil {
 		t.Fatalf("Check() error = %v; unreachable is a valid result", err)
