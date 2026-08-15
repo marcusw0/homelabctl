@@ -57,31 +57,30 @@ The network checks are working as expected. Configuration, inventories, and conc
 - HTTP redirect reporting
 - Automated tests for TCP, HTTP, and DNS checks
 
-### Phase 3: Configuration and CLI design — In progress
+### Phase 3: Configuration and CLI design — Complete
 
-- [x] Load service definitions from TOML or JSON
-- [x] Command-line flags
-- [ ] Environment variables
-- [ ] Built-in defaults
-- [x] Add commands for listing and checking configured services
-- [ ] Validate service names, targets, ports, durations, check types, and runbooks
+- Load service definitions from TOML or JSON
+- Command-line flags
+- Built-in defaults
+- Add commands for listing and checking configured services
 
 Planned commands:
 
 ```bash
 homelabctl list
-homelabctl check service gitLab
+homelabctl check service gitlab
 homelabctl config add gitlab
 homelabctl -v check service gitlab
 ```
 
-### Phase 4: Concurrent checks
+### Phase 4: Concurrent checks — In progress
 
-- Check multiple services concurrently
-- Add homelabctl check --all
-- Limit the number of simultaneous checks
-- Cancel outstanding checks when Ctrl+C is pressed
-- Verify concurrent behavior with Go's race detector
+- [x] Check multiple services concurrently
+- [x] Add homelabctl check --all
+- [x] Limit the number of simultaneous checks
+- [ ] Cancel outstanding checks when Ctrl+C is pressed
+- [ ] Verify concurrent behavior with Go's race detector
+- [ ] Validate service names, targets, ports, and check types
 
 ### Phase 5: Design and test hardening
 
@@ -107,8 +106,6 @@ homelabctl dashboard
 
 ### Phase 7: Automation and releases
 
-- Add GitLab CI for formatting, vetting, testing, and builds
-- Run race detection in CI
 - Scan dependencies with govulncheck
 - Produce distributable Linux binaries
 - Add a Hyprland shortcut for opening the dashboard
