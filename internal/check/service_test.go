@@ -111,3 +111,81 @@ func TestServiceCheckConcurrentCalls(t *testing.T) {
 		t.Error(failure)
 	}
 }
+
+func TestServiceCheckRunsConcurrently(t *testing.T) {
+	started := make(chan string, 4)
+	release := make(chan struct{})
+
+	var releaseOnce sync.Once
+	releaseChecks := func() {
+		releaseOnce.Do(func() {
+			close(release)
+		})
+	}
+	defer releaseChecks()
+
+	wait := func(name string) {
+		started <- name
+		<-release
+	}
+
+	checks := serviceChecks{
+		HTTP: func(context.Context) (HTTPResults, error) {
+			wait("HTTP")
+			return HTTPResults{Healthy: true}, nil
+		},
+		DNS: func(context.Context) (DNSResults, error) {
+			wait("DNS")
+			return DNSResults{Healthy: true}, nil
+		},
+		TCP: func(context.Context) (TCPResults, error) {
+			wait("TCP")
+			return TCPResults{Healthy: true}, nil
+		},
+		TLS: func(context.Context) (TLSResults, error) {
+			wait("TLS")
+			return TLSResults{Healthy: true}, nil
+		},
+	}
+
+	type response struct {
+		results ServiceResults
+		err     error
+	}
+
+	done := make(chan response, 1)
+	go func() {
+		results, err := runServiceChecks(context.Background(), checks)
+		done <- response{results: results, err: err}
+	}()
+
+	seen := make(map[string]bool)
+	timeout := time.NewTimer(time.Second)
+	defer timeout.Stop()
+
+	for range 4 {
+		select {
+		case name := <-started:
+			seen[name] = true
+		case <-timeout.C:
+			t.Fatalf(
+				"only %d checks started before blocking; checks may be sequential",
+				len(seen),
+			)
+		}
+	}
+
+	releaseChecks()
+
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatalf("runServiceChecks() error = %v", got.err)
+		}
+		if !got.results.Healthy() {
+			t.Error("runServiceChecks() returned unhealthy results")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("runServiceChecks() did not return")
+	}
+}

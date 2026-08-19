@@ -9,19 +9,12 @@ import (
 
 	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
+	"github.com/marcusw0/homelabctl/internal/runner"
 )
 
 type AllCmd struct {
 	ConfigPath string
 	Servers    map[string]ServiceCheckCmd
-}
-
-type AllResults struct {
-	httpHealth bool
-	tlsHealth  bool
-	tcpHealth  bool
-	dnsHealth  bool
-	err        error
 }
 
 type serviceResult struct {
@@ -60,53 +53,36 @@ func (c *AllCmd) Validate() error {
 func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 	const maxConcurrent = 5
 
-	results := make(map[string]AllResults)
-
-	limit := make(chan struct{}, maxConcurrent)
-	workCh := make(chan serviceResult, len(c.Servers))
+	jobs := make([]runner.Job, 0, len(c.Servers))
 
 	for name, server := range c.Servers {
-		limit <- struct{}{}
-
-		go func(name string, server ServiceCheckCmd) {
-			defer func() {
-				<-limit
-			}()
-
-			service := check.Service{
-				FQDN:    server.fqdn,
-				IP:      server.ip,
-				Port:    server.port,
-				Timeout: server.timeout,
-			}
-			result, err := service.Check(ctx)
-
-			workCh <- serviceResult{
-				name:   name,
-				result: result,
-				err:    err,
-			}
-		}(name, server)
-	}
-
-	for range len(c.Servers) {
-		msg := <-workCh
-		results[msg.name] = AllResults{
-			httpHealth: msg.result.HTTP.Healthy,
-			tlsHealth:  msg.result.TLS.Healthy,
-			tcpHealth:  msg.result.TCP.Healthy,
-			dnsHealth:  msg.result.DNS.Healthy,
-			err:        msg.err,
+		service := check.Service{
+			FQDN:    server.fqdn,
+			IP:      server.ip,
+			Port:    server.port,
+			Timeout: server.timeout,
 		}
+
+		jobs = append(jobs, runner.Job{
+			Name:    name,
+			Checker: &service,
+		})
 	}
-	err := writeAllResults(streams.ErrOut, streams.Out, results)
-	if err != nil {
-		return err
+
+	serviceRunner := runner.Runner{
+		MaxConcurrent: 5,
 	}
-	return nil
+
+	results := make(map[string]runner.Result)
+
+	for result := range serviceRunner.Run(ctx, jobs) {
+		results[result.Name] = result
+	}
+
+	return writeAllResults(streams.ErrOut, streams.Out, results)
 }
 
-func writeAllResults(errOut io.Writer, out io.Writer, results map[string]AllResults) error {
+func writeAllResults(errOut io.Writer, out io.Writer, results map[string]runner.Result) error {
 	writer := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 	if _, err := fmt.Fprintln(
 		writer,
@@ -116,17 +92,17 @@ func writeAllResults(errOut io.Writer, out io.Writer, results map[string]AllResu
 	}
 
 	for k, v := range results {
-		if v.err != nil {
-			fmt.Fprintf(errOut, "[ERROR]%s returned: %v\n", k, v.err)
+		if v.Err != nil {
+			fmt.Fprintf(errOut, "[ERROR]%s returned: %v\n", k, v.Err)
 		}
 		if _, err := fmt.Fprintf(
 			writer,
 			"%s\t%t\t%t\t%t\t%t\n",
 			k,
-			v.httpHealth,
-			v.dnsHealth,
-			v.tcpHealth,
-			v.tlsHealth,
+			v.Checks.HTTP.Healthy,
+			v.Checks.DNS.Healthy,
+			v.Checks.TCP.Healthy,
+			v.Checks.TLS.Healthy,
 		); err != nil {
 			return err
 		}
