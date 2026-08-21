@@ -15,6 +15,23 @@ The CLI currently supports:
 - Combined HTTP, DNS, TCP, and TLS service checks
 - Checking all enabled services concurrently
 - Verbose output with latency, timestamps, and protocol-specific details
+- Markdown runbooks associated with configured services
+- Terminal rendering with selectable style and width
+
+## Runbooks
+
+Services can reference a runbook file path:
+
+```toml
+[servers.MyServer]
+fqdn = "myserver.example.com"
+ip = "192.168.1.50
+port = 443
+enabled = true
+runbook = "runbooks/myserver.md"
+```
+
+Runbook paths can either be absolute or resolved relative to the configuration directory.
 
 ## Usage
 
@@ -53,6 +70,15 @@ homelabctl --config ./homelabctl.toml list
 homelabctl --verbose check service gitlab
 ```
 
+View a configured service runbook:
+
+```bash
+homelabctl runbook myserver
+homelabctl runbook --width 100 myserver
+homelabctl runbook --style tokyo-night myserver
+homelabctl runbook -w 80 -s ascii myserver
+```
+
 All checks report health and protocol-specific information. Use `-v` or `--verbose` for additional details such as latency and check timestamps.
 
 Every check will return the health. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks and verbose mode will give back the most detail.
@@ -61,7 +87,7 @@ Every check will return the health. Protocol specific information such as HTTP s
 
 The core CLI is functional. Homelabctl supports one-off network checks, validated TOML config, individual service checks, and concurrent checks across all enabled services.
 
-Development is currently focused on design and test hardening, including additional configuration, timeout, cancellation, and network tests. The interactive dashboard, runbook support, packaging, and release are planned for later phases.
+Development is currently focused on design and test hardening, including additional configuration, timeout, cancellation, and network tests. Basic runbook rendering is now supported. Interactive browsing, scrolling, and search are in development as well as the dashboard.
 
 ## Roadmap
 
@@ -118,17 +144,17 @@ homelabctl -v check service gitlab
 - [ ] Add configuration tests
 - [ ] Experiment with fuzz testing target and configuration parsing
 
-### Phase 6: Runbooks and terminal interface
+### Phase 6: Runbooks and terminal interface — In progress
 
-- Render Markdown runbooks in the terminal
-- Add runbook browsing, scrolling, search, and Vim-style navigation
-- Build an interactive service dashboard
+- [x] Render service runbooks in the terminal
+- [x] Support selectable rendering styles and widths
+- [ ] Add runbook browsing, scrolling, search, and Vim-style navigation
+- [ ] Build an interactive service dashboard
 
 Planned commands:
 
 ```bash
-homelabctl runbook openbao
-homelabctl markdown ./runbooks/openbao.md
+homelabctl runbook -w 80 myserver
 homelabctl dashboard
 ```
 

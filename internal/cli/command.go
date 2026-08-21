@@ -78,6 +78,8 @@ func Parse(args []string, errOut io.Writer) (Command, error) {
 		return parseConfig(errOut, args[1:], opts)
 	case "list":
 		return parseList(errOut, args[1:], opts)
+	case "runbook":
+		return parseRunbook(errOut, args[1:], opts)
 	default:
 		return nil, fmt.Errorf("Unknown command: %q", args[0])
 	}

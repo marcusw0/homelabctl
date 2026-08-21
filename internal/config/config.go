@@ -20,6 +20,7 @@ type Server struct {
 	IP      string `toml:"ip"`
 	Port    int    `toml:"port"`
 	Enabled bool   `toml:"enabled"`
+	Runbook string `toml:"runbook"`
 }
 
 func DefaultPath() (string, error) {
