@@ -136,13 +136,12 @@ homelabctl -v check service gitlab
 - Verify concurrent behavior with Go's race detector
 - Validate service hostnames, IP addresses, ports, and check types
 
-### Phase 5: Design and test hardening — In progress
+### Phase 5: Design and test hardening  — Complete
 
-- [ ] Refactor shared check behavior where useful
-- [ ] Add dependency injection for network operations
-- [ ] Expand timeout and cancellation tests
-- [ ] Add configuration tests
-- [ ] Experiment with fuzz testing target and configuration parsing
+- Refactor shared check behavior where useful
+- Expand timeout and cancellation tests
+- Add configuration tests
+- Experiment with fuzz testing
 
 ### Phase 6: Runbooks and terminal interface — In progress
 
