@@ -28,6 +28,10 @@ func AddServer(
 
 	cfg.Servers[serverName] = server
 
+	if _, err := validateCfg(cfg); err != nil {
+		return fmt.Errorf("validate new server: %w", err)
+	}
+
 	var output bytes.Buffer
 	if err := toml.NewEncoder(&output).Encode(cfg); err != nil {
 		return fmt.Errorf("encode config: %w", err)

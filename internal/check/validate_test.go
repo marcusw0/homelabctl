@@ -2,6 +2,37 @@ package check
 
 import "testing"
 
+func FuzzNormalizeHTTPURL(f *testing.F) {
+	seeds := []string{
+		"example.com",
+		"https://example.com:443/path",
+		"HTTP://example.com",
+		"[::1]:443",
+		"bad_host",
+		"",
+	}
+
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		got, err := NormalizeHTTPURL(input)
+		if err != nil {
+			return
+		}
+
+		again, err := NormalizeHTTPURL(got)
+		if err != nil {
+			t.Fatalf("normalized: %q, was rejected: %v", got, err)
+		}
+
+		if again != got {
+			t.Errorf("normalized first: %q, second: %q", got, again)
+		}
+	})
+}
+
 func TestValidateHostname(t *testing.T) {
 	tests := []struct {
 		host    string

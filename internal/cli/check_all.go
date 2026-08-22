@@ -70,7 +70,7 @@ func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 
 	serviceRunner := runner.Runner{
-		MaxConcurrent: 5,
+		MaxConcurrent: maxConcurrent,
 	}
 
 	results := make(map[string]runner.Result)
