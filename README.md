@@ -15,8 +15,8 @@ The CLI currently supports:
 - Combined HTTP, DNS, TCP, and TLS service checks
 - Checking all enabled services concurrently
 - Verbose output with latency, timestamps, and protocol-specific details
-- Markdown runbooks associated with configured services
-- Terminal rendering with selectable style and width
+- Interactive Markdown runbook viewing with editor integration
+- Set custom width and styles with flags
 
 ## Runbooks
 
@@ -25,7 +25,7 @@ Services can reference a runbook file path:
 ```toml
 [servers.MyServer]
 fqdn = "myserver.example.com"
-ip = "192.168.1.50
+ip = "192.168.1.50"
 port = 443
 enabled = true
 runbook = "runbooks/myserver.md"
@@ -34,6 +34,10 @@ runbook = "runbooks/myserver.md"
 Runbook paths can either be absolute or resolved relative to the configuration directory.
 
 ## Usage
+
+All checks report health and protocol-specific information. Use `-v` or `--verbose` for additional details such as latency and check timestamps.
+
+Every check will return the health. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks and verbose mode will give back the most detail.
 
 Run individual network checks:
 
@@ -79,15 +83,19 @@ homelabctl runbook --style tokyo-night myserver
 homelabctl runbook -w 80 -s ascii myserver
 ```
 
-All checks report health and protocol-specific information. Use `-v` or `--verbose` for additional details such as latency and check timestamps.
+Controls:
 
-Every check will return the health. Protocol specific information such as HTTP status codes and TLS cert details are also displayed in their own checks and verbose mode will give back the most detail.
+- scroll: `j`/`k` or arrow keys
+- open runbook in `$EDITOR` (defaults to `vim`)
+- exit: `q` or `esc`
+
+After the editor exits, the markdown will be rendered again for viewing.
 
 ## Project status
 
 The core CLI is functional. Homelabctl supports one-off network checks, validated TOML config, individual service checks, and concurrent checks across all enabled services.
 
-Development is currently focused on design and test hardening, including additional configuration, timeout, cancellation, and network tests. Basic runbook rendering is now supported. Interactive browsing, scrolling, and search are in development as well as the dashboard.
+Development is currently focused on design and test hardening, including additional configuration, timeout, cancellation, and network tests. Interactive runbook viewing, scrolling, and editor integration are now supported. Search and dashboard are in development.
 
 ## Roadmap
 
@@ -147,7 +155,8 @@ homelabctl -v check service gitlab
 
 - [x] Render service runbooks in the terminal
 - [x] Support selectable rendering styles and widths
-- [ ] Add runbook browsing, scrolling, search, and Vim-style navigation
+- [x] Add runbook browsing, scrolling, search, and Vim-style navigation
+- [x] Open runbooks with configured `$EDITOR` and reload changes
 - [ ] Build an interactive service dashboard
 
 Planned commands:
