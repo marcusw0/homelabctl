@@ -1,6 +1,6 @@
 # Homelabctl
 
-`homelabctl` is currently a CLI tool for checking the health of your services. The long term goal is to build a TUI with service status, cert monitoring, and shortcuts to your documentation.
+`homelabctl` is a CLI tool for managing and checking on homelab servers. You can do individual health checks for HTTP, TCP, TLS, and DNS or initialize a config file and start adding your servers in there. You can also keep track of runbooks/docs for each server and render the Markdown through `homelabctl` and even switch to editing them! I am still developing new features and will be adding a TUI dashboard soon.
 
 ## Current Features
 
