@@ -11,6 +11,7 @@ import (
 
 	"github.com/marcusw0/homelabctl/internal/config"
 	"github.com/marcusw0/homelabctl/internal/markdown"
+	ui "github.com/marcusw0/homelabctl/internal/tui/runbook"
 )
 
 type RunbookCmd struct {
@@ -34,14 +35,14 @@ func parseRunbook(
 	flags.IntVar(
 		&cmd.Width,
 		"width",
-		100,
+		150,
 		"render width",
 	)
 
 	flags.IntVar(
 		&cmd.Width,
 		"w",
-		100,
+		150,
 		"render width",
 	)
 
@@ -128,10 +129,11 @@ func (c *RunbookCmd) Run(ctx context.Context, streams IOStreams) error {
 		return err
 	}
 
-	_, err = streams.Out.Write(render)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ui.Run(
+		streams.In,
+		streams.Out,
+		runbook,
+		string(render),
+		c.Style,
+	)
 }
