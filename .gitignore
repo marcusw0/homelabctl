@@ -1,3 +1,5 @@
 # Ignored files
 coverage.out
 bin/
+# Added by goreleaser init:
+dist/
