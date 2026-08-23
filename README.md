@@ -18,20 +18,87 @@ The CLI currently supports:
 - Interactive Markdown runbook viewing with editor integration
 - Set custom width and styles with flags
 
-## Runbooks
+## Installation
 
-Services can reference a runbook file path:
+Install packages are available here
+[latest GitHub release](https://github.com/marcusw0/homelabctl/releases/latest)
 
-```toml
-[servers.MyServer]
-fqdn = "myserver.example.com"
-ip = "192.168.1.50"
-port = 443
-enabled = true
-runbook = "runbooks/myserver.md"
+### Arch Linux
+
+Download the `.pkg.tar.zst` file for your architecture, then run:
+
+```bash
+sudo pacman -U ./homelabctl-*.pkg.tar.zst
 ```
 
-Runbook paths can either be absolute or resolved relative to the configuration directory.
+### Ubuntu and Debian
+
+Download the `.deb` file for your architecture, then run:
+
+```bash
+sudo apt install ./homelabctl-*.deb
+```
+
+### Fedora and RHEL
+
+Download the `.rpm` file for your architecture, then run:
+
+```bash
+sudo dnf install ./homelabctl-*.rpm
+```
+
+### Portable Linux and macOS installation
+
+Download and extract the appropriate `.tar.gz` archive:
+
+```bash
+tar -xzf homelabctl_*.tar.gz
+sudo install -m 0755 homelabctl /usr/local/bin/homelabctl
+```
+
+### Windows
+
+Download the appropriate Windows `.zip` archive and extract it:
+
+```powershell
+Expand-Archive .\homelabctl_Windows_x86_64.zip -DestinationPath .\homelabctl
+```
+
+Move homelabctl.exe into a directory included in your PATH.
+
+### Install with Go
+
+```bash
+go install github.com/marcusw0/homelabctl/cmd/homelabctl@latest
+```
+
+Ensure Go's binary directory is included in your PATH.
+
+### Verify the installation
+
+```bash
+homelabctl --help
+```
+
+## Quick start
+
+Initialize the configuration:
+
+```bash
+homelabctl config init
+```
+
+The default configuration location is:
+
+- Linux: ~/.config/homelabctl/config.toml
+- macOS: ~/Library/Application Support/homelabctl/config.toml
+- Windows: %AppData%\homelabctl\config.toml
+
+Try a health check:
+
+```bash
+homelabctl check tcp example.com
+```
 
 ## Usage
 
@@ -51,14 +118,6 @@ homelabctl check tls --timeout 2s --port 443 example.com
 homelabctl check dns example.com
 ```
 
-Manage the service inventory:
-
-```bash
-homelabctl config init
-homelabctl config add <service>
-homelabctl list
-```
-
 Check configured services:
 
 ```bash
@@ -71,8 +130,44 @@ Use global configuration and output options:
 
 ```bash
 homelabctl --config ./homelabctl.toml list
-homelabctl --verbose check service gitlab
+homelabctl --verbose check service myNAS
 ```
+
+### Config
+
+Manage your toml config:
+
+```bash
+homelabctl config init
+homelabctl config add <service>
+homelabctl list
+```
+
+Example config:
+
+```toml
+[servers.MyServer]
+fqdn = "myserver.example.com"
+ip = "192.168.1.50"
+port = 443
+enabled = true
+runbook = "runbooks/myserver.md"
+```
+
+### Runbooks
+
+Services can reference a runbook file path:
+
+```toml
+[servers.MyServer]
+fqdn = "myserver.example.com"
+ip = "10.0.0.55"
+port = 8443
+enabled = true
+runbook = "/path/to/runbook/myserver.md"
+```
+
+Runbook paths can either be absolute or resolved relative to the configuration directory.
 
 View a configured service runbook:
 
@@ -86,89 +181,7 @@ homelabctl runbook -w 80 -s ascii myserver
 Controls:
 
 - scroll: `j`/`k` or arrow keys
-- open runbook in `$EDITOR` (defaults to `vim`)
+- edit: `e` - open runbook in `$EDITOR` (defaults to `vim`)
 - exit: `q` or `esc`
 
 After the editor exits, the markdown will be rendered again for viewing.
-
-## Project status
-
-The core CLI is functional. Homelabctl supports one-off network checks, validated TOML config, individual service checks, and concurrent checks across all enabled services.
-
-Development is currently focused on design and test hardening, including additional configuration, timeout, cancellation, and network tests. Interactive runbook viewing, scrolling, and editor integration are now supported. Search and dashboard are in development.
-
-## Roadmap
-
-### Phase 1: Basic HTTP checks — Complete
-
-- Run HTTP health checks from the command line
-- Report status code, latency, and health
-- Return useful errors for failed requests
-- Add structured HTTP results
-- Add tests
-
-### Phase 2: Network checks — Complete
-
-- HTTP status and latency checks
-- TCP connectivity checks
-- TLS certificate inspection
-- DNS lookups
-- Context cancellation and per-check timeouts
-- Structured results with health, latency, and timestamps
-- Certificate expiration reporting
-- HTTP redirect reporting
-- Automated tests for TCP, HTTP, and DNS checks
-
-### Phase 3: Configuration and CLI design — Complete
-
-- Load service definitions from TOML
-- Command-line flags
-- Built-in defaults
-- Add commands for listing and checking configured services
-
-Planned commands:
-
-```bash
-homelabctl list
-homelabctl check service gitlab
-homelabctl config add gitlab
-homelabctl -v check service gitlab
-```
-
-### Phase 4: Concurrent checks — Complete
-
-- Check multiple services concurrently
-- Add homelabctl check --all
-- Limit the number of simultaneous checks
-- Cancel outstanding checks when Ctrl+C is pressed
-- Verify concurrent behavior with Go's race detector
-- Validate service hostnames, IP addresses, ports, and check types
-
-### Phase 5: Design and test hardening  — Complete
-
-- Refactor shared check behavior where useful
-- Expand timeout and cancellation tests
-- Add configuration tests
-- Experiment with fuzz testing
-
-### Phase 6: Runbooks and terminal interface — In progress
-
-- [x] Render service runbooks in the terminal
-- [x] Support selectable rendering styles and widths
-- [x] Add runbook browsing, scrolling, search, and Vim-style navigation
-- [x] Open runbooks with configured `$EDITOR` and reload changes
-- [ ] Build an interactive service dashboard
-
-Planned commands:
-
-```bash
-homelabctl runbook -w 80 myserver
-homelabctl dashboard
-```
-
-### Phase 7: Automation and releases
-
-- Scan dependencies with govulncheck
-- Produce distributable Linux binaries
-- Add a Hyprland shortcut for opening the dashboard
-- Document installation and release procedures
