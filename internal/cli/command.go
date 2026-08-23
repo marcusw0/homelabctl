@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -61,6 +60,28 @@ func Parse(args []string, errOut io.Writer) (Command, error) {
 	flags.SetOutput(errOut)
 	addGlobalFlags(flags, &opts)
 
+	flags.Usage = func() {
+		fmt.Fprintln(errOut, `Usage:
+   homelabctl [global options] <command> [command options]
+
+Commands:
+   check     Run HTTP, TCP, TLS, DNS, or service check from config
+   config    Initialize or modify service config
+   list      List services in your config.toml
+   runbook   View/edit service runbooks
+   help      Show this help
+
+Example:
+   homelabctl check http myserver.example.com
+   homelabctl -v check service myserver
+   homelabctl config init
+
+Global options:`)
+
+		flags.PrintDefaults()
+		fmt.Fprintln(errOut, "\nFor help with a specific command: homelabctl <command> --help")
+	}
+
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
@@ -68,10 +89,14 @@ func Parse(args []string, errOut io.Writer) (Command, error) {
 	args = flags.Args()
 
 	if len(args) == 0 {
-		return nil, errors.New("Expected a command: check|config|list")
+		flags.Usage()
+		return nil, flag.ErrHelp
 	}
 
 	switch args[0] {
+	case "help":
+		flags.Usage()
+		return nil, flag.ErrHelp
 	case "check":
 		return parseCheck(errOut, args[1:], opts)
 	case "config":
