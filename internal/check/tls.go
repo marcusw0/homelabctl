@@ -9,20 +9,22 @@ import (
 )
 
 type TLS struct {
-	Port    int
-	Timeout time.Duration
+	Port       int
+	Timeout    time.Duration
+	WarnBefore time.Duration
 }
 
 type TLSResults struct {
-	Target    string
-	Subject   string
-	Issuer    string
-	Names     []string
-	After     time.Time
-	Expires   time.Duration
-	Healthy   bool
-	Latency   time.Duration
-	CheckedAt time.Time
+	Target      string
+	Subject     string
+	Issuer      string
+	Names       []string
+	After       time.Time
+	Expires     time.Duration
+	ExpiresSoon bool
+	Healthy     bool
+	Latency     time.Duration
+	CheckedAt   time.Time
 }
 
 func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
@@ -78,16 +80,20 @@ func (c *TLS) Check(ctx context.Context, target string) (TLSResults, error) {
 		return results, nil
 	}
 
+	expiresSoon := c.WarnBefore > 0 &&
+		expiresIn <= c.WarnBefore
+
 	results := TLSResults{
-		Target:    target,
-		Subject:   cert.Subject.String(),
-		Issuer:    cert.Issuer.String(),
-		Names:     cert.DNSNames,
-		After:     cert.NotAfter,
-		Expires:   expiresIn,
-		Healthy:   true,
-		Latency:   time.Since(start),
-		CheckedAt: time.Now(),
+		Target:      target,
+		Subject:     cert.Subject.String(),
+		Issuer:      cert.Issuer.String(),
+		Names:       cert.DNSNames,
+		After:       cert.NotAfter,
+		Expires:     expiresIn,
+		ExpiresSoon: expiresSoon,
+		Healthy:     true,
+		Latency:     time.Since(start),
+		CheckedAt:   time.Now(),
 	}
 
 	return results, nil

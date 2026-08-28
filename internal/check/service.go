@@ -4,25 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"strconv"
 	"sync"
 	"time"
 )
 
 type ServiceResults struct {
-	HTTP HTTPResults
-	DNS  DNSResults
-	TCP  TCPResults
-	TLS  TLSResults
+	HTTP Outcome[HTTPResults]
+	DNS  Outcome[DNSResults]
+	TCP  Outcome[TCPResults]
+	TLS  Outcome[TLSResults]
 }
 
 type Service struct {
-	FQDN    string
-	IP      string
-	Port    int
-	Timeout time.Duration
+	FQDN            string
+	TCPHost         string
+	Port            int
+	Checks          []Kind
+	HTTPURL         string
+	ExpectedStatus  int
+	FollowRedirects bool
+	Timeout         time.Duration
+	TLSWarnBefore   time.Duration
 }
 
 type serviceChecks struct {
@@ -33,97 +35,148 @@ type serviceChecks struct {
 }
 
 func (c *Service) Check(ctx context.Context) (ServiceResults, error) {
-	target := net.JoinHostPort(c.IP, strconv.Itoa(c.Port))
-
-	httpCheck := HTTP{
+	var srvChecks serviceChecks
+	http := HTTP{
 		Timeout:        c.Timeout,
-		ExpectedStatus: http.StatusOK,
-		FollowRedirect: true,
+		ExpectedStatus: c.ExpectedStatus,
+		FollowRedirect: c.FollowRedirects,
 	}
-	httpTarget := "https://" + net.JoinHostPort(
-		c.FQDN,
-		strconv.Itoa(c.Port),
-	)
 	dns := DNS{Timeout: c.Timeout}
 	tcp := TCP{Timeout: c.Timeout}
-	tls := TLS{Port: c.Port, Timeout: c.Timeout}
+	tls := TLS{
+		Port:       c.Port,
+		Timeout:    c.Timeout,
+		WarnBefore: c.TLSWarnBefore,
+	}
 
-	return runServiceChecks(ctx, serviceChecks{
-		HTTP: func(ctx context.Context) (HTTPResults, error) {
-			return httpCheck.Check(ctx, httpTarget)
-		},
-		DNS: func(ctx context.Context) (DNSResults, error) {
-			return dns.Check(ctx, c.FQDN)
-		},
-		TCP: func(ctx context.Context) (TCPResults, error) {
-			return tcp.Check(ctx, target)
-		},
-		TLS: func(ctx context.Context) (TLSResults, error) {
-			return tls.Check(ctx, c.FQDN)
-		},
-	})
+	for _, kind := range c.Checks {
+		switch kind {
+		case KindHTTP:
+			srvChecks.HTTP = func(ctx context.Context) (HTTPResults, error) {
+				return http.Check(ctx, c.HTTPURL)
+			}
+		case KindDNS:
+			srvChecks.DNS = func(ctx context.Context) (DNSResults, error) {
+				return dns.Check(ctx, c.FQDN)
+			}
+		case KindTCP:
+			srvChecks.TCP = func(ctx context.Context) (TCPResults, error) {
+				return tcp.Check(ctx, c.TCPHost)
+			}
+		case KindTLS:
+			srvChecks.TLS = func(ctx context.Context) (TLSResults, error) {
+				return tls.Check(ctx, c.FQDN)
+			}
+		}
+	}
 
+	return runServiceChecks(ctx, srvChecks)
 }
 
 func runServiceChecks(
 	ctx context.Context,
 	checks serviceChecks,
 ) (ServiceResults, error) {
-	var (
-		results ServiceResults
-		httpErr error
-		dnsErr  error
-		tcpErr  error
-		tlsErr  error
-		wg      sync.WaitGroup
-	)
+	results := ServiceResults{
+		HTTP: Outcome[HTTPResults]{Status: StatusSkipped},
+		DNS:  Outcome[DNSResults]{Status: StatusSkipped},
+		TCP:  Outcome[TCPResults]{Status: StatusSkipped},
+		TLS:  Outcome[TLSResults]{Status: StatusSkipped},
+	}
 
-	wg.Add(4)
+	var wg sync.WaitGroup
 
-	go func() {
-		defer wg.Done()
+	if checks.HTTP != nil {
+		wg.Go(func() {
+			result, err := checks.HTTP(ctx)
+			if err != nil {
+				err = fmt.Errorf("HTTP check: %w", err)
+			}
+			results.HTTP = Outcome[HTTPResults]{
+				Result: result,
+				Err:    err,
+				Status: statusFor(result.Healthy, err),
+			}
+		})
+	}
 
-		results.HTTP, httpErr = checks.HTTP(ctx)
-		if httpErr != nil {
-			httpErr = fmt.Errorf("HTTP check: %w", httpErr)
-		}
-	}()
+	if checks.DNS != nil {
+		wg.Go(func() {
+			result, err := checks.DNS(ctx)
+			if err != nil {
+				err = fmt.Errorf("DNS check: %w", err)
+			}
+			results.DNS = Outcome[DNSResults]{
+				Result: result,
+				Err:    err,
+				Status: statusFor(result.Healthy, err),
+			}
+		})
+	}
 
-	go func() {
-		defer wg.Done()
+	if checks.TCP != nil {
+		wg.Go(func() {
+			result, err := checks.TCP(ctx)
+			if err != nil {
+				err = fmt.Errorf("TCP check: %w", err)
+			}
+			results.TCP = Outcome[TCPResults]{
+				Result: result,
+				Err:    err,
+				Status: statusFor(result.Healthy, err),
+			}
+		})
+	}
 
-		results.DNS, dnsErr = checks.DNS(ctx)
-		if dnsErr != nil {
-			dnsErr = fmt.Errorf("DNS check: %w", dnsErr)
-		}
-	}()
+	if checks.TLS != nil {
+		wg.Go(func() {
+			result, err := checks.TLS(ctx)
+			if err != nil {
+				err = fmt.Errorf("TLS check: %w", err)
+			}
+			status := statusFor(result.Healthy, err)
 
-	go func() {
-		defer wg.Done()
-
-		results.TCP, tcpErr = checks.TCP(ctx)
-		if tcpErr != nil {
-			tcpErr = fmt.Errorf("TCP check: %w", tcpErr)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		results.TLS, tlsErr = checks.TLS(ctx)
-		if tlsErr != nil {
-			tlsErr = fmt.Errorf("TLS check: %w", tlsErr)
-		}
-	}()
-
+			if status == StatusHealthy && result.ExpiresSoon {
+				status = StatusWarning
+			}
+			results.TLS = Outcome[TLSResults]{
+				Result: result,
+				Err:    err,
+				Status: status,
+			}
+		})
+	}
 	wg.Wait()
 
-	return results, errors.Join(httpErr, dnsErr, tcpErr, tlsErr)
+	return results, errors.Join(
+		results.HTTP.Err,
+		results.DNS.Err,
+		results.TCP.Err,
+		results.TLS.Err,
+	)
 }
 
 func (r ServiceResults) Healthy() bool {
-	return r.HTTP.Healthy &&
-		r.DNS.Healthy &&
-		r.TCP.Healthy &&
-		r.TLS.Healthy
+	return outcomeHealthy(r.HTTP.Status) &&
+		outcomeHealthy(r.DNS.Status) &&
+		outcomeHealthy(r.TCP.Status) &&
+		outcomeHealthy(r.TLS.Status)
+}
+
+func outcomeHealthy(status Status) bool {
+	return status == StatusHealthy ||
+		status == StatusWarning ||
+		status == StatusSkipped
+}
+
+func statusFor(healthy bool, err error) Status {
+	if err != nil {
+		return StatusError
+	}
+
+	if healthy {
+		return StatusHealthy
+	}
+
+	return StatusUnhealthy
 }

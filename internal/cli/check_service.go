@@ -13,12 +13,11 @@ import (
 )
 
 type ServiceCheckCmd struct {
-	server  string
-	timeout time.Duration
-	fqdn    string
-	ip      string
-	port    int
-	verbose bool
+	configPath      string
+	serverName      string
+	serverCfg       config.Server
+	timeoutOverride *time.Duration
+	verbose         bool
 }
 
 func parseServiceCheck(
@@ -28,107 +27,118 @@ func parseServiceCheck(
 ) (Command, error) {
 	cmd := &ServiceCheckCmd{}
 
-	flags := flag.NewFlagSet("check service", flag.ContinueOnError)
+	flags := flag.NewFlagSet(
+		"check service",
+		flag.ContinueOnError,
+	)
 	flags.SetOutput(errOut)
 	addGlobalFlags(flags, &opts)
 
-	flags.DurationVar(
-		&cmd.timeout,
+	flags.Func(
 		"timeout",
-		5*time.Second,
-		"Request timeout",
+		"override configured timeout",
+		func(value string) error {
+			timeout, err := time.ParseDuration(value)
+			if err != nil {
+				return fmt.Errorf("invalid timeout: %w", err)
+			}
+
+			cmd.timeoutOverride = &timeout
+			return nil
+		},
 	)
 
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
 	if flags.NArg() != 1 {
-		return nil, errors.New("check service accepts exactly one server name")
-	}
-
-	serverName := flags.Arg(0)
-
-	cfg, err := config.Load(opts.ConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("invalid config %w", err)
-	}
-
-	server, exists := cfg.Servers[serverName]
-	if !exists {
-		return nil, fmt.Errorf(
-			"server %q not found in %s",
-			serverName,
-			opts.ConfigPath,
+		return nil, errors.New(
+			"check service accepts exactly one server name",
 		)
 	}
-	if !server.Enabled {
-		return nil, fmt.Errorf("server %q is disabled", serverName)
-	}
 
-	checkService := ServiceCheckCmd{
-		server:  serverName,
-		timeout: cmd.timeout,
-		fqdn:    server.FQDN,
-		ip:      server.IP,
-		port:    server.Port,
-		verbose: opts.Verbose,
-	}
-	return &checkService, nil
+	cmd.configPath = opts.ConfigPath
+	cmd.serverName = flags.Arg(0)
+	cmd.verbose = opts.Verbose
+
+	return cmd, nil
 }
 
 func (c *ServiceCheckCmd) Validate() error {
-	if c.timeout <= 0 {
-		return errors.New("timeout must be greater than 0")
+	if c.timeoutOverride != nil && *c.timeoutOverride <= 0 {
+		return errors.New("timeout must be greater than zero")
 	}
 
-	if err := check.ValidateHostname(c.fqdn); err != nil {
-		return err
+	cfg, err := config.Load(c.configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	if err := check.ValidateIP(c.ip); err != nil {
-		return err
+	server, exists := cfg.Servers[c.serverName]
+	if !exists {
+		return fmt.Errorf(
+			"server %q not found in %s",
+			c.serverName,
+			c.configPath,
+		)
+	}
+	if !server.Enabled {
+		return fmt.Errorf("server %q is disabled", c.serverName)
 	}
 
-	if err := check.ValidatePort(c.port); err != nil {
-		return err
-	}
-
+	c.serverCfg = server
 	return nil
 }
 
+func serviceFromConfig(server config.Server) check.Service {
+	return check.Service{
+		FQDN:            server.FQDN,
+		TCPHost:         server.EffectiveTCPHost(),
+		Port:            server.Port,
+		Timeout:         server.EffectiveTimeout(),
+		TLSWarnBefore:   server.EffectiveTLSWarnBefore(),
+		Checks:          server.EffectiveChecks(),
+		HTTPURL:         server.EffectiveHTTPURL(),
+		ExpectedStatus:  server.EffectiveStatusCode(),
+		FollowRedirects: server.EffectiveFollowRedirects(),
+	}
+}
+
 func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
-	service := check.Service{
-		FQDN:    c.fqdn,
-		IP:      c.ip,
-		Port:    c.port,
-		Timeout: c.timeout,
+	service := serviceFromConfig(c.serverCfg)
+
+	if c.timeoutOverride != nil {
+		service.Timeout = *c.timeoutOverride
 	}
 
 	results, checkErr := service.Check(ctx)
-	writeErr := writeService(streams.Out, results, c.server, c.verbose)
-	if writeErr != nil {
-		return errors.Join(checkErr, writeErr)
-	}
-	return checkErr
+	writeErr := writeService(
+		streams.Out,
+		results,
+		c.serverName,
+		c.verbose,
+	)
+
+	return errors.Join(checkErr, writeErr)
 }
 
 func writeService(
 	out io.Writer,
-	results check.ServiceResults,
+	resp check.ServiceResults,
 	server string,
 	verbose bool,
 ) error {
 	if !verbose {
 		_, err := fmt.Fprintf(
 			out,
-			"HTTP healthy: %t\n"+
-				"DNS healthy: %t\n"+
-				"TCP healthy: %t\n"+
-				"TLS healthy: %t\n",
-			results.HTTP.Healthy,
-			results.DNS.Healthy,
-			results.TCP.Healthy,
-			results.TLS.Healthy,
+			"HTTP status: %s\n"+
+				"DNS status: %s\n"+
+				"TCP status: %s\n"+
+				"TLS status: %s\n",
+			resp.HTTP.Status,
+			resp.DNS.Status,
+			resp.TCP.Status,
+			resp.TLS.Status,
 		)
 		return err
 	}
@@ -139,16 +149,16 @@ func writeService(
 			"\x1b[31mHTTP RESULTS\x1b[0m\n"+
 			"Status: %d\n"+
 			"Latency: %s\n"+
-			"Healthy: %t\n"+
+			"Health: %s\n"+
 			"-----------\n"+
 			"\x1b[31mDNS RESULTS\x1b[0m\n"+
 			"Response: %v\n"+
 			"Latency: %s\n"+
-			"Healthy: %t\n"+
+			"Health: %s\n"+
 			"-----------\n"+
 			"\x1b[31mTCP RESULTS\x1b[0m\n"+
 			"Latency: %s\n"+
-			"Healthy: %t\n"+
+			"Health: %s\n"+
 			"Message: %q\n"+
 			"-----------\n"+
 			"\x1b[31mTLS RESULTS\x1b[0m\n"+
@@ -157,28 +167,25 @@ func writeService(
 			"Name: %s\n"+
 			"NotAfter: %s\n"+
 			"Expires: %v\n"+
-			"Healthy: %t\n"+
+			"Health: %s\n"+
 			"-----------\n",
 		server,
-		results.HTTP.StatusCode,
-		formatDuration(results.HTTP.Latency),
-		results.HTTP.Healthy,
-		results.DNS.Response,
-		formatDuration(results.DNS.Latency),
-		results.DNS.Healthy,
-		formatDuration(results.TCP.Latency),
-		results.TCP.Healthy,
-		results.TCP.Message,
-		results.TLS.Subject,
-		results.TLS.Issuer,
-		results.TLS.Names[:],
-		formatTimestamp(results.TLS.After),
-		formatExpiry(results.TLS.Expires),
-		results.TLS.Healthy,
+		resp.HTTP.Result.StatusCode,
+		formatDuration(resp.HTTP.Result.Latency),
+		resp.HTTP.Status,
+		resp.DNS.Result.Response,
+		formatDuration(resp.DNS.Result.Latency),
+		resp.DNS.Status,
+		formatDuration(resp.TCP.Result.Latency),
+		resp.TCP.Status,
+		resp.TCP.Result.Message,
+		resp.TLS.Result.Subject,
+		resp.TLS.Result.Issuer,
+		resp.TLS.Result.Names[:],
+		formatTimestamp(resp.TLS.Result.After),
+		formatExpiry(resp.TLS.Result.Expires),
+		resp.TLS.Status,
 	)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }

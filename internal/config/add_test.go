@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/marcusw0/homelabctl/internal/check"
 )
 
 func newTestConfig(t *testing.T) string {
@@ -48,7 +52,33 @@ func TestAddServer(t *testing.T) {
 		t.Fatal(`server "myserver" was not added`)
 	}
 
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("server: %#v, want: %#v", got, want)
+	}
+}
+
+func TestAddServerOptionalFieldsRoundTrip(t *testing.T) {
+	cfgPath := newTestConfig(t)
+	followRedirects := false
+	tlsWarnBefore := 30 * 24 * time.Hour
+	want := validTestServer()
+	want.Checks = []check.Kind{check.KindHTTP, check.KindTLS}
+	want.HTTPURL = "https://myserver.example.com/health"
+	want.ExpectedStatus = 204
+	want.FollowRedirects = &followRedirects
+	want.TLSWarnBefore = &tlsWarnBefore
+	want.Timeout = 3 * time.Second
+
+	if err := AddServer(cfgPath, "myserver", want); err != nil {
+		t.Fatalf("AddServer() error: %v", err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if got := cfg.Servers["myserver"]; !reflect.DeepEqual(got, want) {
 		t.Errorf("server: %#v, want: %#v", got, want)
 	}
 }
@@ -85,6 +115,8 @@ func TestAddRejectsDup(t *testing.T) {
 }
 
 func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
+	negativeDuration := -time.Second
+
 	tests := []struct {
 		name   string
 		server Server
@@ -111,6 +143,33 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 				FQDN: "myserver.example.com",
 				IP:   "192.168.5.13",
 				Port: 0,
+			},
+		},
+		{
+			name: "negative timeout",
+			server: Server{
+				FQDN:    "myserver.example.com",
+				IP:      "192.168.5.13",
+				Port:    443,
+				Timeout: negativeDuration,
+			},
+		},
+		{
+			name: "negative TLS warning duration",
+			server: Server{
+				FQDN:          "myserver.example.com",
+				IP:            "192.168.5.13",
+				Port:          443,
+				TLSWarnBefore: &negativeDuration,
+			},
+		},
+		{
+			name: "unsupported check",
+			server: Server{
+				FQDN:   "myserver.example.com",
+				IP:     "192.168.5.13",
+				Port:   443,
+				Checks: []check.Kind{"htpt"},
 			},
 		},
 	}
