@@ -38,10 +38,14 @@ func newTestService(t *testing.T) (*Service, func()) {
 	}
 
 	service := &Service{
-		FQDN:    "localhost",
-		IP:      "127.0.0.1",
-		Port:    port,
-		Timeout: time.Second,
+		FQDN:            "localhost",
+		TCPHost:         net.JoinHostPort("127.0.0.1", portText),
+		Port:            port,
+		Checks:          []Kind{KindHTTP, KindDNS, KindTCP, KindTLS},
+		HTTPURL:         "https://" + net.JoinHostPort("localhost", portText),
+		ExpectedStatus:  http.StatusOK,
+		FollowRedirects: true,
+		Timeout:         time.Second,
 	}
 
 	return service, server.Close
@@ -53,16 +57,16 @@ func TestServiceCheck(t *testing.T) {
 
 	got, err := service.Check(context.Background())
 
-	if !got.DNS.Healthy {
+	if !got.DNS.Result.Healthy {
 		t.Error("DNS result unhealthy, want healthy")
 	}
-	if !got.TCP.Healthy {
+	if !got.TCP.Result.Healthy {
 		t.Error("TCP result unhealthy, want healthy")
 	}
-	if got.HTTP.Healthy {
+	if got.HTTP.Result.Healthy {
 		t.Error("HTTP result healthy, want unhealthy")
 	}
-	if got.TLS.Healthy {
+	if got.TLS.Result.Healthy {
 		t.Error("TLS result healthy, want unhealthy")
 	}
 
@@ -98,7 +102,7 @@ func TestServiceCheckConcurrentCalls(t *testing.T) {
 				failures <- "Check() error = nil"
 				return
 			}
-			if !got.DNS.Healthy || !got.TCP.Healthy {
+			if !got.DNS.Result.Healthy || !got.TCP.Result.Healthy {
 				failures <- "DNS or TCP result was unhealthy"
 			}
 		}()
@@ -112,8 +116,8 @@ func TestServiceCheckConcurrentCalls(t *testing.T) {
 	}
 }
 
-func TestServiceCheckRunsConcurrently(t *testing.T) {
-	started := make(chan string, 4)
+func TestServiceCheckRunsSelectedChecksConcurrently(t *testing.T) {
+	started := make(chan string, 2)
 	release := make(chan struct{})
 
 	var releaseOnce sync.Once
@@ -134,17 +138,9 @@ func TestServiceCheckRunsConcurrently(t *testing.T) {
 			wait("HTTP")
 			return HTTPResults{Healthy: true}, nil
 		},
-		DNS: func(context.Context) (DNSResults, error) {
-			wait("DNS")
-			return DNSResults{Healthy: true}, nil
-		},
-		TCP: func(context.Context) (TCPResults, error) {
-			wait("TCP")
-			return TCPResults{Healthy: true}, nil
-		},
 		TLS: func(context.Context) (TLSResults, error) {
 			wait("TLS")
-			return TLSResults{Healthy: true}, nil
+			return TLSResults{Healthy: true, ExpiresSoon: true}, nil
 		},
 	}
 
@@ -163,7 +159,7 @@ func TestServiceCheckRunsConcurrently(t *testing.T) {
 	timeout := time.NewTimer(time.Second)
 	defer timeout.Stop()
 
-	for range 4 {
+	for range 2 {
 		select {
 		case name := <-started:
 			seen[name] = true
@@ -184,6 +180,27 @@ func TestServiceCheckRunsConcurrently(t *testing.T) {
 		}
 		if !got.results.Healthy() {
 			t.Error("runServiceChecks() returned unhealthy results")
+		}
+		if got.results.TLS.Status != StatusWarning {
+			t.Errorf(
+				"TLS status = %q, want %q",
+				got.results.TLS.Status,
+				StatusWarning,
+			)
+		}
+		if got.results.DNS.Status != StatusSkipped {
+			t.Errorf(
+				"DNS status = %q, want %q",
+				got.results.DNS.Status,
+				StatusSkipped,
+			)
+		}
+		if got.results.TCP.Status != StatusSkipped {
+			t.Errorf(
+				"TCP status = %q, want %q",
+				got.results.TCP.Status,
+				StatusSkipped,
+			)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("runServiceChecks() did not return")

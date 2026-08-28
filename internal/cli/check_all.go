@@ -2,10 +2,10 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"text/tabwriter"
-	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
@@ -14,7 +14,7 @@ import (
 
 type AllCmd struct {
 	ConfigPath string
-	Servers    map[string]ServiceCheckCmd
+	Servers    map[string]config.Server
 }
 
 type serviceResult struct {
@@ -28,26 +28,20 @@ func (c *AllCmd) Validate() error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	servers := make(map[string]ServiceCheckCmd)
-	for k, v := range cfg.Servers {
-		if v.Enabled == true {
-			servers[k] = ServiceCheckCmd{
-				fqdn:    v.FQDN,
-				ip:      v.IP,
-				port:    v.Port,
-				timeout: 5 * time.Second,
-			}
+
+	servers := make(map[string]config.Server)
+	for name, server := range cfg.Servers {
+		if server.Enabled {
+			servers[name] = server
 		}
-		continue
 	}
 	if len(servers) == 0 {
-		return fmt.Errorf("No services configured.")
+		return errors.New("no enabled services configured")
 	}
 
 	c.Servers = servers
 
 	return nil
-
 }
 
 func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
@@ -55,17 +49,12 @@ func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 
 	jobs := make([]runner.Job, 0, len(c.Servers))
 
-	for name, server := range c.Servers {
-		service := check.Service{
-			FQDN:    server.fqdn,
-			IP:      server.ip,
-			Port:    server.port,
-			Timeout: server.timeout,
-		}
+	for name, service := range c.Servers {
+		s := serviceFromConfig(service)
 
 		jobs = append(jobs, runner.Job{
 			Name:    name,
-			Checker: &service,
+			Checker: &s,
 		})
 	}
 
@@ -97,12 +86,12 @@ func writeAllResults(errOut io.Writer, out io.Writer, results map[string]runner.
 		}
 		if _, err := fmt.Fprintf(
 			writer,
-			"%s\t%t\t%t\t%t\t%t\n",
+			"%s\t%s\t%s\t%s\t%s\n",
 			k,
-			v.Checks.HTTP.Healthy,
-			v.Checks.DNS.Healthy,
-			v.Checks.TCP.Healthy,
-			v.Checks.TLS.Healthy,
+			v.Checks.HTTP.Status,
+			v.Checks.DNS.Status,
+			v.Checks.TCP.Status,
+			v.Checks.TLS.Status,
 		); err != nil {
 			return err
 		}

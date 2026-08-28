@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/marcusw0/homelabctl/internal/check"
@@ -21,6 +22,17 @@ type Server struct {
 	Port    int    `toml:"port"`
 	Enabled bool   `toml:"enabled"`
 	Runbook string `toml:"runbook"`
+
+	Checks []check.Kind `toml:"checks,omitempty"`
+
+	// Optional URL override. When empty, derive HTTPS URL from FQDN.
+	HTTPURL         string `toml:"http_url,omitempty"`
+	ExpectedStatus  int    `toml:"expect_status,omitempty"`
+	FollowRedirects *bool  `toml:"follow_redirects,omitempty"`
+
+	// Set when to be warned of an approaching certificate expiration.
+	TLSWarnBefore *time.Duration `toml:"tls_warn_before,omitempty"`
+	Timeout       time.Duration  `toml:"timeout,omitempty"`
 }
 
 func DefaultPath() (string, error) {
@@ -57,6 +69,15 @@ func validateCfg(cfg Config) (Config, error) {
 
 	for _, name := range names {
 		server := cfg.Servers[name]
+		for _, kind := range server.Checks {
+			if !kind.Valid() {
+				errs = append(errs, fmt.Errorf(
+					"server %q has unsupported check %q",
+					name,
+					kind,
+				))
+			}
+		}
 		if err := check.ValidateHostname(server.FQDN); err != nil {
 			errs = append(errs, fmt.Errorf(
 				"server %q FQDN: %w",
@@ -80,6 +101,18 @@ func validateCfg(cfg Config) (Config, error) {
 				err,
 			),
 			)
+		}
+		if server.Timeout < 0 {
+			errs = append(errs, fmt.Errorf(
+				"server %q timeout must not be negative",
+				name,
+			))
+		}
+		if server.TLSWarnBefore != nil && *server.TLSWarnBefore < 0 {
+			errs = append(errs, fmt.Errorf(
+				"server %q TLS warning duration must not be negative",
+				name,
+			))
 		}
 	}
 
