@@ -24,22 +24,22 @@ func newTestConfig(t *testing.T) string {
 	return path
 }
 
-func validTestServer() Server {
-	return Server{
-		FQDN:    "myserver.example.com",
+func validTestService() Service {
+	return Service{
+		FQDN:    "myservice.example.com",
 		IP:      "192.168.5.13",
 		Port:    443,
 		Enabled: true,
-		Runbook: "runbooks/myserver.md",
+		Runbook: "runbooks/myservice.md",
 	}
 }
 
-func TestAddServer(t *testing.T) {
+func TestAddService(t *testing.T) {
 	cfgPath := newTestConfig(t)
-	want := validTestServer()
+	want := validTestService()
 
-	if err := AddServer(cfgPath, "myserver", want); err != nil {
-		t.Fatalf("AddServer() error: %v", err)
+	if err := AddService(cfgPath, "myservice", want); err != nil {
+		t.Fatalf("AddService() error: %v", err)
 	}
 
 	cfg, err := Load(cfgPath)
@@ -47,30 +47,30 @@ func TestAddServer(t *testing.T) {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	got, exists := cfg.Servers["myserver"]
+	got, exists := cfg.Services["myservice"]
 	if !exists {
-		t.Fatal(`server "myserver" was not added`)
+		t.Fatal(`service "myservice" was not added`)
 	}
 
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("server: %#v, want: %#v", got, want)
+		t.Errorf("service: %#v, want: %#v", got, want)
 	}
 }
 
-func TestAddServerOptionalFieldsRoundTrip(t *testing.T) {
+func TestAddServiceOptionalFieldsRoundTrip(t *testing.T) {
 	cfgPath := newTestConfig(t)
 	followRedirects := false
 	tlsWarnBefore := 30 * 24 * time.Hour
-	want := validTestServer()
+	want := validTestService()
 	want.Checks = []check.Kind{check.KindHTTP, check.KindTLS}
-	want.HTTPURL = "https://myserver.example.com/health"
+	want.HTTPURL = "https://myservice.example.com/health"
 	want.ExpectedStatus = 204
 	want.FollowRedirects = &followRedirects
 	want.TLSWarnBefore = &tlsWarnBefore
 	want.Timeout = 3 * time.Second
 
-	if err := AddServer(cfgPath, "myserver", want); err != nil {
-		t.Fatalf("AddServer() error: %v", err)
+	if err := AddService(cfgPath, "myservice", want); err != nil {
+		t.Fatalf("AddService() error: %v", err)
 	}
 
 	cfg, err := Load(cfgPath)
@@ -78,17 +78,17 @@ func TestAddServerOptionalFieldsRoundTrip(t *testing.T) {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	if got := cfg.Servers["myserver"]; !reflect.DeepEqual(got, want) {
-		t.Errorf("server: %#v, want: %#v", got, want)
+	if got := cfg.Services["myservice"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("service: %#v, want: %#v", got, want)
 	}
 }
 
 func TestAddRejectsDup(t *testing.T) {
 	cfgPath := newTestConfig(t)
-	server := validTestServer()
+	service := validTestService()
 
-	if err := AddServer(cfgPath, "myserver", server); err != nil {
-		t.Fatalf("AddServer() error: %v", err)
+	if err := AddService(cfgPath, "myservice", service); err != nil {
+		t.Fatalf("AddService() error: %v", err)
 	}
 
 	before, err := os.ReadFile(cfgPath)
@@ -96,9 +96,9 @@ func TestAddRejectsDup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = AddServer(cfgPath, "myserver", server)
+	err = AddService(cfgPath, "myservice", service)
 	if err == nil {
-		t.Fatal("Duplicate server was added with AddServer(), want error")
+		t.Fatal("Duplicate service was added with AddService(), want error")
 	}
 	if !strings.Contains(err.Error(), "already exists") {
 		t.Errorf("unexpected error: %v", err)
@@ -118,12 +118,12 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 	negativeDuration := -time.Second
 
 	tests := []struct {
-		name   string
-		server Server
+		name    string
+		service Service
 	}{
 		{
 			name: "invalid hostname",
-			server: Server{
+			service: Service{
 				FQDN: "bad_host",
 				IP:   "192.168.5.13",
 				Port: 443,
@@ -131,24 +131,24 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 		},
 		{
 			name: "invalid ip",
-			server: Server{
-				FQDN: "myserver.example.com",
+			service: Service{
+				FQDN: "myservice.example.com",
 				IP:   "not-an-ip",
 				Port: 443,
 			},
 		},
 		{
 			name: "invalid port",
-			server: Server{
-				FQDN: "myserver.example.com",
+			service: Service{
+				FQDN: "myservice.example.com",
 				IP:   "192.168.5.13",
 				Port: 0,
 			},
 		},
 		{
 			name: "negative timeout",
-			server: Server{
-				FQDN:    "myserver.example.com",
+			service: Service{
+				FQDN:    "myservice.example.com",
 				IP:      "192.168.5.13",
 				Port:    443,
 				Timeout: negativeDuration,
@@ -156,8 +156,8 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 		},
 		{
 			name: "negative TLS warning duration",
-			server: Server{
-				FQDN:          "myserver.example.com",
+			service: Service{
+				FQDN:          "myservice.example.com",
 				IP:            "192.168.5.13",
 				Port:          443,
 				TLSWarnBefore: &negativeDuration,
@@ -165,8 +165,8 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 		},
 		{
 			name: "unsupported check",
-			server: Server{
-				FQDN:   "myserver.example.com",
+			service: Service{
+				FQDN:   "myservice.example.com",
 				IP:     "192.168.5.13",
 				Port:   443,
 				Checks: []check.Kind{"htpt"},
@@ -183,8 +183,8 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := AddServer(cfgPath, "myserver", tt.server); err == nil {
-				t.Fatal("AddServer() error = nil, want validation error")
+			if err := AddService(cfgPath, "myservice", tt.service); err == nil {
+				t.Fatal("AddService() error = nil, want validation error")
 			}
 
 			after, err := os.ReadFile(cfgPath)
@@ -193,7 +193,7 @@ func TestAddRejectsInvalidNoConfigChange(t *testing.T) {
 			}
 
 			if !bytes.Equal(before, after) {
-				t.Error("config changed after invalid server was rejected")
+				t.Error("config changed after invalid service was rejected")
 			}
 		})
 	}

@@ -1,6 +1,6 @@
 # Homelabctl
 
-`homelabctl` is a CLI tool for managing and checking on homelab servers. You can do individual health checks for HTTP, TCP, TLS, and DNS or initialize a config file and start adding your servers in there. You can also keep track of runbooks/docs for each server and render the Markdown through `homelabctl` and even switch to editing them! I am still developing new features and will be adding a TUI dashboard soon.
+`homelabctl` is a CLI tool for managing and checking homelab services. You can run individual HTTP, TCP, TLS, and DNS health checks or initialize a config file and add your services to it. You can also associate each service with a runbook, render its Markdown, and open it for editing. I am still developing new features and will be adding a TUI dashboard soon.
 
 ## Current Features
 
@@ -121,8 +121,8 @@ homelabctl check dns example.com
 Check configured services:
 
 ```bash
-homelabctl check service myserver
-homelabctl check service --timeout 10s myserver
+homelabctl check service myservice
+homelabctl check service --timeout 10s myservice
 homelabctl check --all
 ```
 
@@ -130,7 +130,7 @@ Use global configuration and output options:
 
 ```bash
 homelabctl --config ./homelabctl.toml list
-homelabctl --verbose check service myNAS
+homelabctl --verbose check service my-nas
 ```
 
 ### Config
@@ -146,25 +146,27 @@ homelabctl list
 Example config:
 
 ```toml
-[servers.MyServer]
-fqdn = "myserver.example.com"
+[services.MyService]
+fqdn = "myservice.example.com"
 ip = "192.168.1.50"
 port = 443
 enabled = true
-runbook = "runbooks/myserver.md"
+runbook = "runbooks/myservice.md"
 ```
+
+Existing `[servers.<name>]` tables remain readable, but new and rewritten configurations use `[services.<name>]`.
 
 ### Runbooks
 
 Services can reference a runbook file path:
 
 ```toml
-[servers.MyServer]
-fqdn = "myserver.example.com"
+[services.MyService]
+fqdn = "myservice.example.com"
 ip = "10.0.0.55"
 port = 8443
 enabled = true
-runbook = "/path/to/runbook/myserver.md"
+runbook = "/path/to/runbook/myservice.md"
 ```
 
 Runbook paths can either be absolute or resolved relative to the configuration directory.
@@ -172,10 +174,10 @@ Runbook paths can either be absolute or resolved relative to the configuration d
 View a configured service runbook:
 
 ```bash
-homelabctl runbook myserver
-homelabctl runbook --width 100 myserver
-homelabctl runbook --style tokyo-night myserver
-homelabctl runbook -w 80 -s ascii myserver
+homelabctl runbook myservice
+homelabctl runbook --width 100 myservice
+homelabctl runbook --style tokyo-night myservice
+homelabctl runbook -w 80 -s ascii myservice
 ```
 
 Controls:

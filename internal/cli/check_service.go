@@ -14,8 +14,8 @@ import (
 
 type ServiceCheckCmd struct {
 	configPath      string
-	serverName      string
-	serverCfg       config.Server
+	serviceName     string
+	serviceCfg      config.Service
 	timeoutOverride *time.Duration
 	verbose         bool
 }
@@ -53,12 +53,12 @@ func parseServiceCheck(
 	}
 	if flags.NArg() != 1 {
 		return nil, errors.New(
-			"check service accepts exactly one server name",
+			"check service accepts exactly one service name",
 		)
 	}
 
 	cmd.configPath = opts.ConfigPath
-	cmd.serverName = flags.Arg(0)
+	cmd.serviceName = flags.Arg(0)
 	cmd.verbose = opts.Verbose
 
 	return cmd, nil
@@ -74,38 +74,38 @@ func (c *ServiceCheckCmd) Validate() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	server, exists := cfg.Servers[c.serverName]
+	service, exists := cfg.Services[c.serviceName]
 	if !exists {
 		return fmt.Errorf(
-			"server %q not found in %s",
-			c.serverName,
+			"service %q not found in %s",
+			c.serviceName,
 			c.configPath,
 		)
 	}
-	if !server.Enabled {
-		return fmt.Errorf("server %q is disabled", c.serverName)
+	if !service.Enabled {
+		return fmt.Errorf("service %q is disabled", c.serviceName)
 	}
 
-	c.serverCfg = server
+	c.serviceCfg = service
 	return nil
 }
 
-func serviceFromConfig(server config.Server) check.Service {
+func serviceFromConfig(service config.Service) check.Service {
 	return check.Service{
-		FQDN:            server.FQDN,
-		TCPHost:         server.EffectiveTCPHost(),
-		Port:            server.Port,
-		Timeout:         server.EffectiveTimeout(),
-		TLSWarnBefore:   server.EffectiveTLSWarnBefore(),
-		Checks:          server.EffectiveChecks(),
-		HTTPURL:         server.EffectiveHTTPURL(),
-		ExpectedStatus:  server.EffectiveStatusCode(),
-		FollowRedirects: server.EffectiveFollowRedirects(),
+		FQDN:            service.FQDN,
+		TCPHost:         service.EffectiveTCPHost(),
+		Port:            service.Port,
+		Timeout:         service.EffectiveTimeout(),
+		TLSWarnBefore:   service.EffectiveTLSWarnBefore(),
+		Checks:          service.EffectiveChecks(),
+		HTTPURL:         service.EffectiveHTTPURL(),
+		ExpectedStatus:  service.EffectiveStatusCode(),
+		FollowRedirects: service.EffectiveFollowRedirects(),
 	}
 }
 
 func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
-	service := serviceFromConfig(c.serverCfg)
+	service := serviceFromConfig(c.serviceCfg)
 
 	if c.timeoutOverride != nil {
 		service.Timeout = *c.timeoutOverride
@@ -115,7 +115,7 @@ func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	writeErr := writeService(
 		streams.Out,
 		results,
-		c.serverName,
+		c.serviceName,
 		c.verbose,
 	)
 
@@ -125,7 +125,7 @@ func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 func writeService(
 	out io.Writer,
 	resp check.ServiceResults,
-	server string,
+	serviceName string,
 	verbose bool,
 ) error {
 	if !verbose {
@@ -169,7 +169,7 @@ func writeService(
 			"Expires: %v\n"+
 			"Health: %s\n"+
 			"-----------\n",
-		server,
+		serviceName,
 		resp.HTTP.Result.StatusCode,
 		formatDuration(resp.HTTP.Result.Latency),
 		resp.HTTP.Status,

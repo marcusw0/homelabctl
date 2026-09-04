@@ -14,7 +14,7 @@ import (
 
 type AllCmd struct {
 	ConfigPath string
-	Servers    map[string]config.Server
+	Services   map[string]config.Service
 }
 
 type serviceResult struct {
@@ -29,17 +29,17 @@ func (c *AllCmd) Validate() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	servers := make(map[string]config.Server)
-	for name, server := range cfg.Servers {
-		if server.Enabled {
-			servers[name] = server
+	services := make(map[string]config.Service)
+	for name, service := range cfg.Services {
+		if service.Enabled {
+			services[name] = service
 		}
 	}
-	if len(servers) == 0 {
+	if len(services) == 0 {
 		return errors.New("no enabled services configured")
 	}
 
-	c.Servers = servers
+	c.Services = services
 
 	return nil
 }
@@ -47,9 +47,9 @@ func (c *AllCmd) Validate() error {
 func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 	const maxConcurrent = 5
 
-	jobs := make([]runner.Job, 0, len(c.Servers))
+	jobs := make([]runner.Job, 0, len(c.Services))
 
-	for name, service := range c.Servers {
+	for name, service := range c.Services {
 		s := serviceFromConfig(service)
 
 		jobs = append(jobs, runner.Job{

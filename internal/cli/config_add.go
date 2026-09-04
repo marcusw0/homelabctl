@@ -11,30 +11,30 @@ import (
 )
 
 type ConfigAddCmd struct {
-	ConfigPath string
-	ServerName string
+	ConfigPath  string
+	ServiceName string
 }
 
 func (c *ConfigAddCmd) Validate() error {
 	if c.ConfigPath == "" {
 		return errors.New("config path cannot be empty")
 	}
-	if c.ServerName == "" {
-		return errors.New("specify a name for the new server")
+	if c.ServiceName == "" {
+		return errors.New("specify a name for the new service")
 	}
 	return nil
 }
 
 func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
-	newServer, err := promptServer(streams.In, streams.ErrOut, c.ServerName)
+	newService, err := promptService(streams.In, streams.ErrOut, c.ServiceName)
 	if err != nil {
 		return err
 	}
 
-	if err := config.AddServer(
+	if err := config.AddService(
 		c.ConfigPath,
-		c.ServerName,
-		newServer,
+		c.ServiceName,
+		newService,
 	); err != nil {
 		return err
 	}
@@ -42,19 +42,19 @@ func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
 	if _, err := fmt.Fprintf(
 		streams.Out,
 		"%s added to config\n",
-		c.ServerName,
+		c.ServiceName,
 	); err != nil {
 		return err
 	}
 	return nil
 }
 
-func promptServer(
+func promptService(
 	in io.Reader,
 	out io.Writer,
 	name string,
-) (config.Server, error) {
-	newServer := config.Server{
+) (config.Service, error) {
+	newService := config.Service{
 		Enabled: true,
 	}
 	if _, err := fmt.Fprintf(
@@ -62,18 +62,18 @@ func promptServer(
 		"Enter the fqdn for %s: ",
 		name,
 	); err != nil {
-		return newServer,
+		return newService,
 			fmt.Errorf(
 				"write fqdn: %w",
 				err,
 			)
 	}
-	if _, err := fmt.Fscan(in, &newServer.FQDN); err != nil {
-		return newServer, fmt.Errorf("read FQDN: %w", err)
+	if _, err := fmt.Fscan(in, &newService.FQDN); err != nil {
+		return newService, fmt.Errorf("read FQDN: %w", err)
 	}
 
-	if err := check.ValidateHostname(newServer.FQDN); err != nil {
-		return newServer, err
+	if err := check.ValidateHostname(newService.FQDN); err != nil {
+		return newService, err
 	}
 
 	if _, err := fmt.Fprintf(
@@ -81,18 +81,18 @@ func promptServer(
 		"Enter %s's IP: ",
 		name,
 	); err != nil {
-		return newServer,
+		return newService,
 			fmt.Errorf(
 				"write ip: %w",
 				err,
 			)
 	}
-	if _, err := fmt.Fscan(in, &newServer.IP); err != nil {
-		return newServer, fmt.Errorf("read ip address: %w", err)
+	if _, err := fmt.Fscan(in, &newService.IP); err != nil {
+		return newService, fmt.Errorf("read ip address: %w", err)
 	}
 
-	if err := check.ValidateIP(newServer.IP); err != nil {
-		return newServer, err
+	if err := check.ValidateIP(newService.IP); err != nil {
+		return newService, err
 	}
 
 	if _, err := fmt.Fprintf(
@@ -100,19 +100,19 @@ func promptServer(
 		"Enter a port number for %s: ",
 		name,
 	); err != nil {
-		return newServer,
+		return newService,
 			fmt.Errorf(
 				"write port: %w",
 				err,
 			)
 	}
-	if _, err := fmt.Fscan(in, &newServer.Port); err != nil {
-		return newServer, fmt.Errorf("read port: %w", err)
+	if _, err := fmt.Fscan(in, &newService.Port); err != nil {
+		return newService, fmt.Errorf("read port: %w", err)
 	}
 
-	if err := check.ValidatePort(newServer.Port); err != nil {
-		return newServer, err
+	if err := check.ValidatePort(newService.Port); err != nil {
+		return newService, err
 	}
 
-	return newServer, nil
+	return newService, nil
 }

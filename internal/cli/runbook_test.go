@@ -18,11 +18,11 @@ func TestRunbookCmdRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	runbookPath := filepath.Join(runbookDir, "myserver.md")
+	runbookPath := filepath.Join(runbookDir, "myservice.md")
 
 	if err := os.WriteFile(
 		runbookPath,
-		[]byte("# MyServer Runbook\n\nCheck the logs."),
+		[]byte("# MyService Runbook\n\nCheck the logs."),
 		0o600,
 	); err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestRunbookCmdRun(t *testing.T) {
 
 	cmd := RunbookCmd{
 		RunbookPath: runbookPath,
-		ServerName:  "myserver",
+		ServiceName: "myservice",
 		Style:       "notty",
 		Width:       80,
 	}

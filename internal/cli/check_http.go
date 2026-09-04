@@ -111,7 +111,7 @@ func writeHTTPResponse(
 		if resp.StatusCode == 0 {
 			_, err := fmt.Fprintf(
 				out,
-				"Server: %s\nHealthy: %t\n",
+				"Host: %s\nHealthy: %t\n",
 				resp.Target,
 				resp.Healthy,
 			)
@@ -120,7 +120,7 @@ func writeHTTPResponse(
 
 		_, err := fmt.Fprintf(
 			out,
-			"Server: %s\nStatus: %d\nHealthy: %t\n",
+			"Host: %s\nStatus: %d\nHealthy: %t\n",
 			resp.Target,
 			resp.StatusCode,
 			resp.Healthy,
@@ -131,7 +131,7 @@ func writeHTTPResponse(
 	if resp.StatusCode == 0 {
 		_, err := fmt.Fprintf(
 			out,
-			"Server: %s\nHealthy: %t\nChecked At: %s\n",
+			"Host: %s\nHealthy: %t\nChecked At: %s\n",
 			resp.Target,
 			resp.Healthy,
 			formatTimestamp(resp.CheckedAt),
@@ -141,7 +141,7 @@ func writeHTTPResponse(
 
 	_, err := fmt.Fprintf(
 		out,
-		"Server: %s\n"+
+		"Host: %s\n"+
 			"Status: %d\n"+
 			"Latency: %s\n"+
 			"Healthy: %t\n"+

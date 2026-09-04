@@ -57,7 +57,7 @@ func parseCheck(
 		return parseServiceCheck(errOut, args[1:], opts)
 	default:
 		if len(args) != 1 {
-			return nil, errors.New("check accepts exactly one server name")
+			return nil, errors.New("check accepts exactly one service name")
 		}
 		return nil, fmt.Errorf("unrecognized subcommand: %q", args[0])
 	}

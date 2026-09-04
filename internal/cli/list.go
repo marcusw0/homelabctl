@@ -58,7 +58,7 @@ func (c *ListCmd) Run(ctx context.Context, streams IOStreams) error {
 }
 
 func writeListResponse(out io.Writer, resp config.Config) error {
-	if len(resp.Servers) == 0 {
+	if len(resp.Services) == 0 {
 		_, err := fmt.Fprintln(out, "No services configured.")
 		return err
 	}
@@ -72,22 +72,22 @@ func writeListResponse(out io.Writer, resp config.Config) error {
 		return err
 	}
 
-	names := make([]string, 0, len(resp.Servers))
-	for name := range resp.Servers {
+	names := make([]string, 0, len(resp.Services))
+	for name := range resp.Services {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	for _, name := range names {
-		server := resp.Servers[name]
+		service := resp.Services[name]
 		if _, err := fmt.Fprintf(
 			writer,
 			"%s\t%s\t%s\t%d\t%t\n",
 			name,
-			server.FQDN,
-			server.IP,
-			server.Port,
-			server.Enabled,
+			service.FQDN,
+			service.IP,
+			service.Port,
+			service.Enabled,
 		); err != nil {
 			return err
 		}

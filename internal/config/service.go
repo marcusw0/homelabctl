@@ -9,7 +9,7 @@ import (
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-func (s Server) EffectiveChecks() []check.Kind {
+func (s Service) EffectiveChecks() []check.Kind {
 	if len(s.Checks) > 0 {
 		return s.Checks
 	}
@@ -22,7 +22,7 @@ func (s Server) EffectiveChecks() []check.Kind {
 	}
 }
 
-func (s Server) EffectiveTCPHost() string {
+func (s Service) EffectiveTCPHost() string {
 	if s.IP != "" {
 		return net.JoinHostPort(s.IP, strconv.Itoa(s.Port))
 	}
@@ -30,7 +30,7 @@ func (s Server) EffectiveTCPHost() string {
 	return net.JoinHostPort(s.FQDN, strconv.Itoa(s.Port))
 }
 
-func (s Server) EffectiveHTTPURL() string {
+func (s Service) EffectiveHTTPURL() string {
 	if s.HTTPURL != "" {
 		return s.HTTPURL
 	}
@@ -41,7 +41,7 @@ func (s Server) EffectiveHTTPURL() string {
 	)
 }
 
-func (s Server) EffectiveStatusCode() int {
+func (s Service) EffectiveStatusCode() int {
 	if s.ExpectedStatus == 0 {
 		return http.StatusOK
 	}
@@ -49,7 +49,7 @@ func (s Server) EffectiveStatusCode() int {
 	return s.ExpectedStatus
 }
 
-func (s Server) EffectiveFollowRedirects() bool {
+func (s Service) EffectiveFollowRedirects() bool {
 	if s.FollowRedirects == nil {
 		return true
 	}
@@ -57,7 +57,7 @@ func (s Server) EffectiveFollowRedirects() bool {
 	return *s.FollowRedirects
 }
 
-func (s Server) EffectiveTimeout() time.Duration {
+func (s Service) EffectiveTimeout() time.Duration {
 	if s.Timeout == 0 {
 		return 5 * time.Second
 	}
@@ -65,7 +65,7 @@ func (s Server) EffectiveTimeout() time.Duration {
 	return s.Timeout
 }
 
-func (s Server) EffectiveTLSWarnBefore() time.Duration {
+func (s Service) EffectiveTLSWarnBefore() time.Duration {
 	if s.TLSWarnBefore == nil {
 		return 15 * 24 * time.Hour
 	}
