@@ -47,11 +47,11 @@ func parseConfig(
 			return nil, err
 		}
 		if flags.NArg() != 1 {
-			return nil, fmt.Errorf("usage: homelabctl config add <server-name>")
+			return nil, fmt.Errorf("usage: homelabctl config add <service-name>")
 		}
 		return &ConfigAddCmd{
-			ConfigPath: opts.ConfigPath,
-			ServerName: flags.Arg(0),
+			ConfigPath:  opts.ConfigPath,
+			ServiceName: flags.Arg(0),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unrecognized command: %q", args[0])

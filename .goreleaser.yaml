@@ -43,7 +43,7 @@ nfpms:
     vendor: Marcus Whited
     homepage: https://github.com/marcusw0/homelabctl
     maintainer: Marcus Whited <54700785+marcusw0@users.noreply.github.com>
-    description: CLI tool for managing homelab servers
+    description: CLI tool for managing homelab services
     license: MIT
     bindir: /usr/bin
     formats:

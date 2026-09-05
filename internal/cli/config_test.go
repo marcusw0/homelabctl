@@ -11,8 +11,8 @@ func TestParseConfigAdd(t *testing.T) {
 		args    []string
 		wantErr bool
 	}{
-		{"missing server name", []string{"add"}, true},
-		{"server name", []string{"add", "gitlab"}, false},
+		{"missing service name", []string{"add"}, true},
+		{"service name", []string{"add", "gitlab"}, false},
 		{"too many arguments", []string{"add", "gitlab", "extra"}, true},
 	}
 

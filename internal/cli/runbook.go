@@ -17,7 +17,7 @@ import (
 type RunbookCmd struct {
 	ConfigPath  string
 	RunbookPath string
-	ServerName  string
+	ServiceName string
 	Style       string
 	Width       int
 }
@@ -67,11 +67,11 @@ func parseRunbook(
 	args = flags.Args()
 
 	if len(args) != 1 {
-		return nil, errors.New("runbook accepts exactly one server argument")
+		return nil, errors.New("runbook accepts exactly one service argument")
 	}
 
 	cmd.ConfigPath = opts.ConfigPath
-	cmd.ServerName = args[0]
+	cmd.ServiceName = args[0]
 
 	return cmd, nil
 
@@ -82,8 +82,8 @@ func (c *RunbookCmd) Validate() error {
 		return errors.New("width must be a positive number")
 	}
 
-	if c.ServerName == "" {
-		return errors.New("server name cannot be blank")
+	if c.ServiceName == "" {
+		return errors.New("service name cannot be blank")
 	}
 
 	cfg, err := config.Load(c.ConfigPath)
@@ -91,20 +91,20 @@ func (c *RunbookCmd) Validate() error {
 		return err
 	}
 
-	server, exists := cfg.Servers[c.ServerName]
+	service, exists := cfg.Services[c.ServiceName]
 	if !exists {
 		return fmt.Errorf(
-			"server %q not found in %s",
-			c.ServerName,
+			"service %q not found in %s",
+			c.ServiceName,
 			c.ConfigPath,
 		)
 	}
 
-	if server.Runbook == "" {
-		return fmt.Errorf("no runbook path configured for %s", c.ServerName)
+	if service.Runbook == "" {
+		return fmt.Errorf("no runbook path configured for %s", c.ServiceName)
 	}
 
-	c.RunbookPath = server.Runbook
+	c.RunbookPath = service.Runbook
 
 	return nil
 }

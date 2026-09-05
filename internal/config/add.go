@@ -8,28 +8,28 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-func AddServer(
+func AddService(
 	configPath string,
-	serverName string,
-	server Server,
+	serviceName string,
+	service Service,
 ) error {
 	cfg, err := Load(configPath)
 	if err != nil {
 		return err
 	}
 
-	if cfg.Servers == nil {
-		cfg.Servers = make(map[string]Server)
+	if cfg.Services == nil {
+		cfg.Services = make(map[string]Service)
 	}
 
-	if _, exists := cfg.Servers[serverName]; exists {
-		return fmt.Errorf("server %q already exists", serverName)
+	if _, exists := cfg.Services[serviceName]; exists {
+		return fmt.Errorf("service %q already exists", serviceName)
 	}
 
-	cfg.Servers[serverName] = server
+	cfg.Services[serviceName] = service
 
 	if _, err := validateCfg(cfg); err != nil {
-		return fmt.Errorf("validate new server: %w", err)
+		return fmt.Errorf("validate new service: %w", err)
 	}
 
 	var output bytes.Buffer

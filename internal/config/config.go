@@ -13,10 +13,10 @@ import (
 )
 
 type Config struct {
-	Servers map[string]Server `toml:"servers"`
+	Services map[string]Service `toml:"services"`
 }
 
-type Server struct {
+type Service struct {
 	FQDN    string `toml:"fqdn"`
 	IP      string `toml:"ip"`
 	Port    int    `toml:"port"`
@@ -45,72 +45,93 @@ func DefaultPath() (string, error) {
 }
 
 func Load(cfgPath string) (Config, error) {
-	var cfg Config
+	var file struct {
+		Services map[string]Service `toml:"services"`
+		// LegacyServices keeps existing [servers] configurations readable.
+		LegacyServices map[string]Service `toml:"servers"`
+	}
 
-	_, err := toml.DecodeFile(cfgPath, &cfg)
+	_, err := toml.DecodeFile(cfgPath, &file)
 	if err != nil {
-		return cfg, fmt.Errorf("load config: %w", err)
+		return Config{}, fmt.Errorf("load config: %w", err)
+	}
+
+	cfg := Config{Services: file.Services}
+	if len(file.LegacyServices) > 0 {
+		if cfg.Services == nil {
+			cfg.Services = make(map[string]Service, len(file.LegacyServices))
+		}
+
+		for name, service := range file.LegacyServices {
+			if _, exists := cfg.Services[name]; exists {
+				return Config{}, fmt.Errorf(
+					"load config: service %q is defined in both [services] and legacy [servers] tables",
+					name,
+				)
+			}
+			cfg.Services[name] = service
+		}
 	}
 
 	return validateCfg(cfg)
 }
 
 func validateCfg(cfg Config) (Config, error) {
-	if len(cfg.Servers) == 0 {
+	if len(cfg.Services) == 0 {
 		return cfg, nil
 	}
 	var errs []error
 
-	names := make([]string, 0, len(cfg.Servers))
-	for name := range cfg.Servers {
+	names := make([]string, 0, len(cfg.Services))
+	for name := range cfg.Services {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	for _, name := range names {
-		server := cfg.Servers[name]
-		for _, kind := range server.Checks {
+		service := cfg.Services[name]
+		for _, kind := range service.Checks {
 			if !kind.Valid() {
 				errs = append(errs, fmt.Errorf(
-					"server %q has unsupported check %q",
+					"service %q has unsupported check %q",
 					name,
 					kind,
 				))
 			}
 		}
-		if err := check.ValidateHostname(server.FQDN); err != nil {
+		if err := check.ValidateHostname(service.FQDN); err != nil {
 			errs = append(errs, fmt.Errorf(
-				"server %q FQDN: %w",
+				"service %q FQDN: %w",
 				name,
 				err,
 			),
 			)
 		}
-		if err := check.ValidateIP(server.IP); err != nil {
+		if err := check.ValidateIP(service.IP); err != nil {
 			errs = append(errs, fmt.Errorf(
-				"server %q IP: %w",
+				"service %q IP: %w",
 				name,
 				err,
 			),
 			)
 		}
-		if err := check.ValidatePort(server.Port); err != nil {
+		if err := check.ValidatePort(service.Port); err != nil {
 			errs = append(errs, fmt.Errorf(
-				"server %q Port: %w",
+				"service %q Port: %w",
 				name,
 				err,
 			),
 			)
 		}
-		if server.Timeout < 0 {
+		if service.Timeout < 0 {
 			errs = append(errs, fmt.Errorf(
-				"server %q timeout must not be negative",
+				"service %q timeout must not be negative",
 				name,
 			))
 		}
-		if server.TLSWarnBefore != nil && *server.TLSWarnBefore < 0 {
+		if service.TLSWarnBefore != nil && *service.TLSWarnBefore < 0 {
 			errs = append(errs, fmt.Errorf(
-				"server %q TLS warning duration must not be negative",
+				"service %q TLS warning duration must not be negative",
 				name,
 			))
 		}

@@ -72,8 +72,8 @@ Commands:
    help      Show this help
 
 Example:
-   homelabctl check http myserver.example.com
-   homelabctl -v check service myserver
+   homelabctl check http myservice.example.com
+   homelabctl -v check service myservice
    homelabctl config init
 
 Global options:`)
