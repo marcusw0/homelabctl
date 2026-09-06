@@ -31,10 +31,12 @@ func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
 		return err
 	}
 
+	newServiceV2 := fillDefaults(newService)
+
 	if err := config.AddService(
 		c.ConfigPath,
 		c.ServiceName,
-		newService,
+		newServiceV2,
 	); err != nil {
 		return err
 	}
@@ -114,5 +116,25 @@ func promptService(
 		return newService, err
 	}
 
+	fmt.Fprint(out, "check your config file to see the new V2 additions\n")
+
 	return newService, nil
+}
+
+func fillDefaults(service config.Service) config.Service {
+	tls := service.EffectiveTLSWarnBefore()
+	redirects := service.EffectiveFollowRedirects()
+	return config.Service{
+		Enabled: service.Enabled,
+		FQDN: service.FQDN,
+		IP: service.IP,
+		Port: service.Port,
+		Runbook: service.Runbook,
+		Checks: service.EffectiveChecks(),
+		Timeout: service.EffectiveTimeout(),
+		ExpectedStatus: service.EffectiveStatusCode(),
+		TLSWarnBefore: &tls,
+		FollowRedirects: &redirects,
+		HTTPURL: service.EffectiveHTTPURL(),
+	}
 }
