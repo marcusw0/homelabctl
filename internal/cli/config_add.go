@@ -125,16 +125,16 @@ func fillDefaults(service config.Service) config.Service {
 	tls := service.EffectiveTLSWarnBefore()
 	redirects := service.EffectiveFollowRedirects()
 	return config.Service{
-		Enabled: service.Enabled,
-		FQDN: service.FQDN,
-		IP: service.IP,
-		Port: service.Port,
-		Runbook: service.Runbook,
-		Checks: service.EffectiveChecks(),
-		Timeout: service.EffectiveTimeout(),
-		ExpectedStatus: service.EffectiveStatusCode(),
-		TLSWarnBefore: &tls,
+		Enabled:         service.Enabled,
+		FQDN:            service.FQDN,
+		IP:              service.IP,
+		Port:            service.Port,
+		Runbook:         service.Runbook,
+		Checks:          service.EffectiveChecks(),
+		Timeout:         service.EffectiveTimeout(),
+		ExpectedStatus:  service.EffectiveStatusCode(),
+		TLSWarnBefore:   &tls,
 		FollowRedirects: &redirects,
-		HTTPURL: service.EffectiveHTTPURL(),
+		HTTPURL:         service.EffectiveHTTPURL(),
 	}
 }
