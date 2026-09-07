@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -90,6 +91,19 @@ func validateCfg(cfg Config) (Config, error) {
 
 	for _, name := range names {
 		service := cfg.Services[name]
+		if service.ExpectedStatus != 0 && (service.ExpectedStatus < 100 || service.ExpectedStatus > 599) {
+			errs = append(errs, fmt.Errorf("service %q expect_status must be between 100 and 599 (or 0 for the default)", name))
+		}
+		if service.HTTPURL != "" {
+			if !strings.Contains(service.HTTPURL, "://") {
+				errs = append(errs, fmt.Errorf("service %q http_url must be a full HTTP or HTTPS URL", name))
+			} else if normalized, err := check.NormalizeHTTPURL(service.HTTPURL); err != nil {
+				errs = append(errs, fmt.Errorf("service %q http_url: %w", name, err))
+			} else {
+				service.HTTPURL = normalized
+				cfg.Services[name] = service
+			}
+		}
 		for _, kind := range service.Checks {
 			if !kind.Valid() {
 				errs = append(errs, fmt.Errorf(

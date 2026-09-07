@@ -13,12 +13,17 @@ func TestCheckHTTP(t *testing.T) {
 	tests := []struct {
 		name        string
 		status      int
+		expected    int
 		wantHealthy bool
 	}{
-		{"success", http.StatusOK, true},
-		{"last healthy status", 299, true},
-		{"redirect boundary", 300, true},
-		{"server error", http.StatusInternalServerError, false},
+		{"success", http.StatusOK, http.StatusOK, true},
+		{"expected no content", http.StatusNoContent, http.StatusNoContent, true},
+		{"redirect boundary", 300, 300, true},
+		{"expected client error", http.StatusNotFound, http.StatusNotFound, true},
+		{"expected server error", http.StatusInternalServerError, http.StatusInternalServerError, true},
+		{"unexpected client error", http.StatusNotFound, http.StatusOK, false},
+		{"unexpected server error", http.StatusInternalServerError, http.StatusOK, false},
+		{"unexpected success", http.StatusOK, http.StatusNoContent, false},
 	}
 
 	s := HTTP{
@@ -34,7 +39,7 @@ func TestCheckHTTP(t *testing.T) {
 			))
 
 			defer server.Close()
-			s.ExpectedStatus = tt.status
+			s.ExpectedStatus = tt.expected
 			got, err := s.Check(ctx, server.URL)
 			if err != nil {
 				t.Error(err)

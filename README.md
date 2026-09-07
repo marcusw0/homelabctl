@@ -126,6 +126,8 @@ homelabctl check service --timeout 10s myservice
 homelabctl check --all
 ```
 
+Configured service checks return a nonzero exit code if any selected check is unhealthy, encounters an error, or the run is canceled. Warnings and skipped checks do not cause failure.
+
 Use global configuration and output options:
 
 ```bash
@@ -152,7 +154,19 @@ ip = "192.168.1.50"
 port = 443
 enabled = true
 runbook = "runbooks/myservice.md"
+
+# Optional check settings (shown with their defaults):
+checks = ["http", "dns", "tcp", "tls"]
+http_url = "https://myservice.example.com:443"
+expect_status = 200
+follow_redirects = true
+timeout = "5s"
+tls_warn_before = "360h" # 15 days - "0s" disables the warning
 ```
+
+Choose a subset such as `checks = ["http", "tcp"]` to skip the other checks (omitting `checks` or using `[]` runs all four). Set `http_url` to a full URL to check a different scheme, port, or path (for example, `http://myservice.example.com:8080/health`). When omitted, it uses HTTPS with `fqdn` and `port`. HTTP is healthy only when the response matches `expect_status`, including explicitly expected 4xx/5xx responses.
+
+Durations use strings such as `"5s"` or `"24h"`. `check service --timeout` overrides the configured timeout for that run. `expect_status` accepts 100–599 (omitting it or setting it to 0 uses 200). A TLS expiry warning still counts as healthy. The `fqdn`, `ip`, and `port` fields are currently required even when some checks are skipped.
 
 Existing `[servers.<name>]` tables remain readable, but new and rewritten configurations use `[services.<name>]`.
 
