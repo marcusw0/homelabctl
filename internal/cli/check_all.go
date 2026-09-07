@@ -7,7 +7,6 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
 	"github.com/marcusw0/homelabctl/internal/runner"
 )
@@ -15,12 +14,6 @@ import (
 type AllCmd struct {
 	ConfigPath string
 	Services   map[string]config.Service
-}
-
-type serviceResult struct {
-	name   string
-	result check.ServiceResults
-	err    error
 }
 
 func (c *AllCmd) Validate() error {
@@ -63,12 +56,19 @@ func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 
 	results := make(map[string]runner.Result)
+	var errs []error
 
 	for result := range serviceRunner.Run(ctx, jobs) {
 		results[result.Name] = result
+		if result.Err != nil {
+			errs = append(errs, fmt.Errorf("service %q: %w", result.Name, result.Err))
+		} else if !result.Checks.Healthy() {
+			errs = append(errs, fmt.Errorf("service %q is unhealthy", result.Name))
+		}
 	}
 
-	return writeAllResults(streams.ErrOut, streams.Out, results)
+	errs = append(errs, ctx.Err(), writeAllResults(streams.ErrOut, streams.Out, results))
+	return errors.Join(errs...)
 }
 
 func writeAllResults(errOut io.Writer, out io.Writer, results map[string]runner.Result) error {

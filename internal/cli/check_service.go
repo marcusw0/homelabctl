@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
@@ -112,6 +113,9 @@ func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 
 	results, checkErr := service.Check(ctx)
+	if checkErr == nil && !results.Healthy() {
+		checkErr = fmt.Errorf("service %q is unhealthy", c.serviceName)
+	}
 	writeErr := writeService(
 		streams.Out,
 		results,
@@ -119,7 +123,7 @@ func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 		c.verbose,
 	)
 
-	return errors.Join(checkErr, writeErr)
+	return errors.Join(checkErr, ctx.Err(), writeErr)
 }
 
 func writeService(
@@ -143,49 +147,30 @@ func writeService(
 		return err
 	}
 
-	_, err := fmt.Fprintf(
-		out,
-		"%s\n"+
-			"\x1b[31mHTTP RESULTS\x1b[0m\n"+
-			"Status: %d\n"+
-			"Latency: %s\n"+
-			"Health: %s\n"+
-			"-----------\n"+
-			"\x1b[31mDNS RESULTS\x1b[0m\n"+
-			"Response: %v\n"+
-			"Latency: %s\n"+
-			"Health: %s\n"+
-			"-----------\n"+
-			"\x1b[31mTCP RESULTS\x1b[0m\n"+
-			"Latency: %s\n"+
-			"Health: %s\n"+
-			"Message: %q\n"+
-			"-----------\n"+
-			"\x1b[31mTLS RESULTS\x1b[0m\n"+
-			"Subject: %s\n"+
-			"Issuer: %s\n"+
-			"Name: %s\n"+
-			"NotAfter: %s\n"+
-			"Expires: %v\n"+
-			"Health: %s\n"+
-			"-----------\n",
-		serviceName,
-		resp.HTTP.Result.StatusCode,
-		formatDuration(resp.HTTP.Result.Latency),
-		resp.HTTP.Status,
-		resp.DNS.Result.Response,
-		formatDuration(resp.DNS.Result.Latency),
-		resp.DNS.Status,
-		formatDuration(resp.TCP.Result.Latency),
-		resp.TCP.Status,
-		resp.TCP.Result.Message,
-		resp.TLS.Result.Subject,
-		resp.TLS.Result.Issuer,
-		resp.TLS.Result.Names[:],
-		formatTimestamp(resp.TLS.Result.After),
-		formatExpiry(resp.TLS.Result.Expires),
-		resp.TLS.Status,
-	)
-
+	var output strings.Builder
+	fmt.Fprintln(&output, serviceName)
+	fmt.Fprintln(&output, "\x1b[31mHTTP RESULTS\x1b[0m")
+	if resp.HTTP.Status != check.StatusSkipped {
+		fmt.Fprintf(&output, "Status: %d\nLatency: %s\n", resp.HTTP.Result.StatusCode, formatDuration(resp.HTTP.Result.Latency))
+	}
+	fmt.Fprintf(&output, "Health: %s\n-----------\n", resp.HTTP.Status)
+	fmt.Fprintln(&output, "\x1b[31mDNS RESULTS\x1b[0m")
+	if resp.DNS.Status != check.StatusSkipped {
+		fmt.Fprintf(&output, "Response: %v\nLatency: %s\n", resp.DNS.Result.Response, formatDuration(resp.DNS.Result.Latency))
+	}
+	fmt.Fprintf(&output, "Health: %s\n-----------\n", resp.DNS.Status)
+	fmt.Fprintln(&output, "\x1b[31mTCP RESULTS\x1b[0m")
+	if resp.TCP.Status != check.StatusSkipped {
+		fmt.Fprintf(&output, "Latency: %s\nMessage: %q\n", formatDuration(resp.TCP.Result.Latency), resp.TCP.Result.Message)
+	}
+	fmt.Fprintf(&output, "Health: %s\n-----------\n", resp.TCP.Status)
+	fmt.Fprintln(&output, "\x1b[31mTLS RESULTS\x1b[0m")
+	if resp.TLS.Status != check.StatusSkipped {
+		fmt.Fprintf(&output, "Subject: %s\nIssuer: %s\nName: %s\nNotAfter: %s\nExpires: %s\n",
+			resp.TLS.Result.Subject, resp.TLS.Result.Issuer, resp.TLS.Result.Names,
+			formatTimestamp(resp.TLS.Result.After), formatExpiry(resp.TLS.Result.Expires))
+	}
+	fmt.Fprintf(&output, "Health: %s\n-----------\n", resp.TLS.Status)
+	_, err := io.WriteString(out, output.String())
 	return err
 }
