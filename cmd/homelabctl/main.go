@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-
 	streams := cli.IOStreams{
 		In:     os.Stdin,
 		Out:    os.Stdout,
