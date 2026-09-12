@@ -10,18 +10,21 @@ import (
 )
 
 type DashboardCmd struct {
-	cfgPath string
-	checks map[string][]check.Kind
-	names []string
+	cfgPath    string
+	serviceCfg map[string]config.Service
+	checks     map[string]check.Service
+	names      []string
 }
 
-func parseDashboardCmd(
+func parseDashboard(
 	errOut io.Writer,
 	args []string,
 	opts GlobalOption,
 ) (Command, error) {
 	cmd := DashboardCmd{
-		cfgPath: opts.ConfigPath,
+		cfgPath:    opts.ConfigPath,
+		serviceCfg: make(map[string]config.Service),
+		checks:     make(map[string]check.Service),
 	}
 	return cmd, nil
 }
@@ -35,14 +38,17 @@ func (d DashboardCmd) Validate() error {
 
 	for name, service := range cfg.Services {
 		if service.Enabled {
-			d.names = append(d.names, name)
-			d.checks[name] = service.Checks
+			d.serviceCfg[name] = service
 		}
 	}
 	return nil
 }
 
 func (d DashboardCmd) Run(ctx context.Context, streams IOStreams) error {
+	for name, service := range d.serviceCfg {
+		d.names = append(d.names, name)
+		d.checks[name] = serviceFromConfig(service)
+	}
 	if err := dashboard.Run(ctx, d.names, d.checks); err != nil {
 		return err
 	}

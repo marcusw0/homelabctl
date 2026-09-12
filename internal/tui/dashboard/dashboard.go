@@ -14,16 +14,17 @@ import (
 )
 
 type model struct {
-	table  table.Model
-	width  int
-	height int
+	ctx        context.Context
+	table      table.Model
+	width      int
+	height     int
 	refreshing bool
-	checks map[string][]check.Kind
-	results <-chan runner.Result
-	interval time.Duration
+	checks     map[string]check.Service
+	results    <-chan runner.Result
+	interval   time.Duration
 }
 
-type refreshMsg struct {}
+type refreshMsg struct{}
 
 func refreshAfter(interval time.Duration) tea.Cmd {
 	return tea.Tick(interval, func(t time.Time) tea.Msg {
@@ -31,7 +32,7 @@ func refreshAfter(interval time.Duration) tea.Cmd {
 	})
 }
 
-type serviceResultMsg struct{
+type serviceResultMsg struct {
 	result runner.Result
 }
 
@@ -47,7 +48,9 @@ func waitForResult(results <-chan runner.Result) tea.Cmd {
 	}
 }
 
-func (m model) Init() tea.Cmd { return nil }
+func (m model) Init() tea.Cmd {
+	return func() tea.Msg { return refreshMsg{} }
+}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -57,7 +60,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.width >= 28 && m.height >= 12 {
 			m.resize()
 		}
-	case tea.KeyPressMsg:{}
+	case tea.KeyPressMsg:
+		{
+		}
 		switch msg.String() {
 		case "esc":
 			if m.table.Focused() {
@@ -72,11 +77,43 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.refreshing {
 			return m, nil
 		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		jobs := make([]runner.Job, 0, len(m.checks))
+
+		for name, service := range m.checks {
+			jobs = append(jobs, runner.Job{
+				Name:    name,
+				Checker: &service,
+			})
+		}
+		serviceRunner := runner.Runner{
+			MaxConcurrent: 4,
+		}
+
+		m.refreshing = true
+		m.results = serviceRunner.Run(m.ctx, jobs)
 		return m, waitForResult(m.results)
+
 	case serviceResultMsg:
+		result := msg.result
+		rows := m.table.Rows()
+
+		for i, row := range rows {
+			if row[0] != result.Name {
+				continue
+			}
+			rows[i] = table.Row{
+				result.Name,
+				string(result.Checks.HTTP.Status),
+				string(result.Checks.DNS.Status),
+				string(result.Checks.TLS.Status),
+				string(result.Checks.TCP.Status),
+				time.Now().Format("2006-01-02 15:04:05"),
+			}
+			break
+		}
+		m.table.SetRows(rows)
 		return m, waitForResult(m.results)
+
 	case refreshFinishedMsg:
 		m.refreshing = false
 		return m, refreshAfter(m.interval)
