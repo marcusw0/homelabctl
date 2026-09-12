@@ -105,6 +105,8 @@ Global options:`)
 		return parseList(errOut, args[1:], opts)
 	case "runbook":
 		return parseRunbook(errOut, args[1:], opts)
+	case "dashboard":
+		return parseDashboard(errOut, args[1:], opts)
 	default:
 		return nil, fmt.Errorf("Unknown command: %q", args[0])
 	}
