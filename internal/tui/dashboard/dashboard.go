@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -14,14 +13,16 @@ import (
 )
 
 type model struct {
-	ctx        context.Context
-	table      table.Model
-	width      int
-	height     int
-	refreshing bool
-	checks     map[string]check.Service
-	results    <-chan runner.Result
-	interval   time.Duration
+	ctx                   context.Context
+	table                 table.Model
+	width                 int
+	height                int
+	refreshing            bool
+	checks                map[string]check.Service
+	results               <-chan runner.Result
+	interval              time.Duration
+	page, selectedService string
+	allResults            map[string]runner.Result
 }
 
 type refreshMsg struct{}
@@ -65,11 +66,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "esc":
-			if m.table.Focused() {
-				m.table.Blur()
+			if m.page == "dashboard" {
+				if m.table.Focused() {
+					m.table.Blur()
+				} else {
+					m.table.Focus()
+				}
 			} else {
-				m.table.Focus()
+				m.page = "dashboard"
+				return m, nil
 			}
+		case "enter":
+			if m.page != "dashboard" {
+				return m, nil
+			}
+			row := m.table.SelectedRow()
+			if len(row) > 0 {
+				m.selectedService = row[0]
+				m.page = "service"
+			}
+			return m, nil
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		}
@@ -95,6 +111,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case serviceResultMsg:
 		result := msg.result
+		m.allResults[result.Name] = result
+
 		rows := m.table.Rows()
 
 		for i, row := range rows {
@@ -118,7 +136,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshing = false
 		return m, refreshAfter(m.interval)
 	}
-	m.table, cmd = m.table.Update(msg)
+	if m.page == "dashboard" {
+		m.table, cmd = m.table.Update(msg)
+	}
 	return m, cmd
 }
 
@@ -136,24 +156,12 @@ func (m model) View() tea.View {
 		return view
 	}
 
-	width := m.width - 4 // Two columns of margin on either side.
-	count := fmt.Sprintf("%d services", len(m.table.Rows()))
-	if len(m.table.Rows()) == 1 {
-		count = "1 service"
+	if m.page == "service" {
+		view.SetContent(m.serviceView())
+	} else {
+		view.SetContent(m.dashboardView())
 	}
-	header := headerLine(titleStyle.Render("HOMELABCTL"), mutedStyle.Render("LOCAL CONSOLE"), width) + "\n" +
-		headerLine(mutedStyle.Render("Service overview"), mutedStyle.Render(count), width)
-	footer := "↑/↓ move · esc focus · q quit"
-	if width >= 60 {
-		footer = "↑/↓ navigate   esc toggle focus   q / ctrl+c quit"
-	} else if width < 32 {
-		footer = "↑↓ move esc focus q quit"
-	}
-	if !m.table.Focused() {
-		footer = "esc focus table · q quit"
-	}
-	content := header + "\n\n" + baseStyle.Render(m.table.View()) + "\n\n" + mutedStyle.Render(footer)
-	view.SetContent(screenStyle.Padding(1, 2).Width(m.width).Height(m.height).Render(content))
+
 	return view
 }
 
