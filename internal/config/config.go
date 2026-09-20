@@ -91,8 +91,8 @@ func validateCfg(cfg Config) (Config, error) {
 
 	for _, name := range names {
 		service := cfg.Services[name]
-		if service.ExpectedStatus != 0 && (service.ExpectedStatus < 100 || service.ExpectedStatus > 599) {
-			errs = append(errs, fmt.Errorf("service %q expect_status must be between 100 and 599 (or 0 for the default)", name))
+		if err := ValidateExpectedStatus(service.ExpectedStatus); err != nil {
+			errs = append(errs, fmt.Errorf("service %q %w", name, err))
 		}
 		if service.HTTPURL != "" {
 			if !strings.Contains(service.HTTPURL, "://") {
@@ -137,10 +137,10 @@ func validateCfg(cfg Config) (Config, error) {
 			),
 			)
 		}
-		if service.Timeout < 0 {
+		if err := ValidateTimeout(service.Timeout); err != nil {
 			errs = append(errs, fmt.Errorf(
-				"service %q timeout must not be negative",
-				name,
+				"service %q %w",
+				name, err,
 			))
 		}
 		if service.TLSWarnBefore != nil && *service.TLSWarnBefore < 0 {
