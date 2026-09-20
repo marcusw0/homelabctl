@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 
-	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
+	"github.com/marcusw0/homelabctl/internal/tui/serviceform"
 )
 
 type ConfigAddCmd struct {
@@ -26,8 +25,12 @@ func (c *ConfigAddCmd) Validate() error {
 }
 
 func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
-	newService, err := promptService(streams.In, streams.ErrOut, c.ServiceName)
+	newService, err := serviceform.Run(ctx, streams.In, streams.ErrOut, c.ServiceName)
 	if err != nil {
+		return err
+	}
+
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 
@@ -49,76 +52,6 @@ func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
 		return err
 	}
 	return nil
-}
-
-func promptService(
-	in io.Reader,
-	out io.Writer,
-	name string,
-) (config.Service, error) {
-	newService := config.Service{
-		Enabled: true,
-	}
-	if _, err := fmt.Fprintf(
-		out,
-		"Enter the fqdn for %s: ",
-		name,
-	); err != nil {
-		return newService,
-			fmt.Errorf(
-				"write fqdn: %w",
-				err,
-			)
-	}
-	if _, err := fmt.Fscan(in, &newService.FQDN); err != nil {
-		return newService, fmt.Errorf("read FQDN: %w", err)
-	}
-
-	if err := check.ValidateHostname(newService.FQDN); err != nil {
-		return newService, err
-	}
-
-	if _, err := fmt.Fprintf(
-		out,
-		"Enter %s's IP: ",
-		name,
-	); err != nil {
-		return newService,
-			fmt.Errorf(
-				"write ip: %w",
-				err,
-			)
-	}
-	if _, err := fmt.Fscan(in, &newService.IP); err != nil {
-		return newService, fmt.Errorf("read ip address: %w", err)
-	}
-
-	if err := check.ValidateIP(newService.IP); err != nil {
-		return newService, err
-	}
-
-	if _, err := fmt.Fprintf(
-		out,
-		"Enter a port number for %s: ",
-		name,
-	); err != nil {
-		return newService,
-			fmt.Errorf(
-				"write port: %w",
-				err,
-			)
-	}
-	if _, err := fmt.Fscan(in, &newService.Port); err != nil {
-		return newService, fmt.Errorf("read port: %w", err)
-	}
-
-	if err := check.ValidatePort(newService.Port); err != nil {
-		return newService, err
-	}
-
-	fmt.Fprint(out, "check your config file to see the new V2 additions\n")
-
-	return newService, nil
 }
 
 func fillDefaults(service config.Service) config.Service {
