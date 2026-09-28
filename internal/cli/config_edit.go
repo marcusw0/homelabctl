@@ -9,28 +9,40 @@ import (
 	"github.com/marcusw0/homelabctl/internal/tui/serviceform"
 )
 
-type ConfigAddCmd struct {
+type ConfigEditCmd struct {
 	ConfigPath  string
 	ServiceName string
+	Config      config.Service
 }
 
-func (c *ConfigAddCmd) Validate() error {
+func (c *ConfigEditCmd) Validate() error {
 	if c.ConfigPath == "" {
 		return errors.New("config path cannot be empty")
 	}
 	if c.ServiceName == "" {
 		return errors.New("specify a name for the new service")
 	}
+	cfg, err := config.Load(c.ConfigPath)
+	if err != nil {
+		return err
+	}
+
+	existing, ok := cfg.Services[c.ServiceName]
+	if !ok {
+		return fmt.Errorf("service %q is not in config", c.ServiceName)
+	}
+	c.Config = existing
+
 	return nil
 }
 
-func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
+func (c *ConfigEditCmd) Run(ctx context.Context, streams IOStreams) error {
 	newService, err := serviceform.Run(
 		ctx,
 		streams.In,
 		streams.ErrOut,
 		c.ServiceName,
-		nil,
+		&c.Config,
 	)
 	if err != nil {
 		return err
@@ -42,7 +54,7 @@ func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
 
 	newServiceV2 := fillDefaults(newService)
 
-	if err := config.AddService(
+	if err := config.UpdateService(
 		c.ConfigPath,
 		c.ServiceName,
 		newServiceV2,
@@ -52,28 +64,10 @@ func (c *ConfigAddCmd) Run(ctx context.Context, streams IOStreams) error {
 
 	if _, err := fmt.Fprintf(
 		streams.Out,
-		"%s added to config\n",
+		"changes to %q have been saved",
 		c.ServiceName,
 	); err != nil {
 		return err
 	}
 	return nil
-}
-
-func fillDefaults(service config.Service) config.Service {
-	tls := service.EffectiveTLSWarnBefore()
-	redirects := service.EffectiveFollowRedirects()
-	return config.Service{
-		Enabled:         service.Enabled,
-		FQDN:            service.FQDN,
-		IP:              service.IP,
-		Port:            service.Port,
-		Runbook:         service.Runbook,
-		Checks:          service.EffectiveChecks(),
-		Timeout:         service.EffectiveTimeout(),
-		ExpectedStatus:  service.EffectiveStatusCode(),
-		TLSWarnBefore:   &tls,
-		FollowRedirects: &redirects,
-		HTTPURL:         service.EffectiveHTTPURL(),
-	}
 }

@@ -53,6 +53,20 @@ func parseConfig(
 			ConfigPath:  opts.ConfigPath,
 			ServiceName: flags.Arg(0),
 		}, nil
+	case "edit":
+		flags := flag.NewFlagSet("config edit", flag.ContinueOnError)
+		flags.SetOutput(errOut)
+		addGlobalFlags(flags, &opts)
+		if err := flags.Parse(args[1:]); err != nil {
+			return nil, err
+		}
+		if flags.NArg() != 1 {
+			return nil, fmt.Errorf("usage: homelabctl config edit <service-name>")
+		}
+		return &ConfigEditCmd{
+			ConfigPath:  opts.ConfigPath,
+			ServiceName: flags.Arg(0),
+		}, nil
 	default:
 		return nil, fmt.Errorf("unrecognized command: %q", args[0])
 	}

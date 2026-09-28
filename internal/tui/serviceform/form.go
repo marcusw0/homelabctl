@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -21,13 +22,14 @@ func Run(
 	in io.Reader,
 	out io.Writer,
 	name string,
+	cfg *config.Service,
 ) (config.Service, error) {
 	if err := ctx.Err(); err != nil {
 		return config.Service{}, err
 	}
 
 	final, err := tea.NewProgram(
-		newModel(name),
+		newModel(name, cfg),
 		tea.WithContext(ctx),
 		tea.WithInput(in),
 		tea.WithOutput(out)).Run()
@@ -91,9 +93,12 @@ type model struct {
 	failure      *fieldError
 }
 
-func newModel(name string) model {
+func newModel(name string, cfg *config.Service) model {
 	m := model{name: name}
 	defaults := config.Service{}
+	if cfg != nil {
+		return fillFields(m, *cfg)
+	}
 	for _, spec := range []struct {
 		id                 fieldID
 		label, placeholder string
@@ -116,6 +121,45 @@ func newModel(name string) model {
 	for _, kind := range defaults.EffectiveChecks() {
 		m.checks = append(m.checks, checkOption{kind, true})
 	}
+	m.syncFocus()
+	return m
+}
+
+func fillFields(m model, cfg config.Service) model {
+	port := strconv.Itoa(cfg.Port)
+	for _, spec := range []struct {
+		id           fieldID
+		label, value string
+		advanced     bool
+	}{
+		{fqdnField, "FQDN", cfg.FQDN, false},
+		{ipField, "IP", cfg.IP, false},
+		{portField, "Port", port, false},
+		{runbookField, "Runbook", cfg.Runbook, true},
+		{expectedField, "Expected status", strconv.Itoa(cfg.EffectiveStatusCode()), true},
+		{timeoutField, "Timeout", cfg.EffectiveTimeout().String(), true},
+	} {
+		input := textinput.New()
+		input.SetValue(spec.value)
+		input.SetWidth(32)
+		input.SetVirtualCursor(true)
+		m.fields = append(m.fields, field{spec.id, spec.label, spec.advanced, input})
+	}
+
+	selected := cfg.EffectiveChecks()
+
+	for _, kind := range []check.Kind{
+		check.KindHTTP,
+		check.KindDNS,
+		check.KindTCP,
+		check.KindTLS,
+	} {
+		m.checks = append(m.checks, checkOption{
+			kind:     kind,
+			selected: slices.Contains(selected, kind),
+		})
+	}
+
 	m.syncFocus()
 	return m
 }
@@ -286,7 +330,7 @@ func (m model) submit() (config.Service, *fieldError) {
 
 var (
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D0F0C0"))
-	mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#77967D"))
+	mutedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#77967D"))
 )
 
 func (m model) View() tea.View {

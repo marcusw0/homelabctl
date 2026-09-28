@@ -25,7 +25,7 @@ func setValue(m *model, id fieldID, value string) {
 }
 
 func validModel() model {
-	m := newModel("nas")
+	m := newModel("nas", nil)
 	setValue(&m, fqdnField, "nas.home")
 	setValue(&m, ipField, "192.168.1.50")
 	setValue(&m, portField, "443")
@@ -98,7 +98,7 @@ func TestDefaultsAndCancel(t *testing.T) {
 	cancel()
 
 	var out bytes.Buffer
-	service, err := Run(ctx, strings.NewReader(""), &out, "nas")
+	service, err := Run(ctx, strings.NewReader(""), &out, "nas", nil)
 	if !errors.Is(err, context.Canceled) || service.FQDN != "" || out.Len() != 0 {
 		t.Fatal("context cancellation ignored")
 	}
