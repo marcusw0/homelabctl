@@ -12,7 +12,7 @@ import (
 type ConfigEditCmd struct {
 	ConfigPath  string
 	ServiceName string
-	Config config.Service
+	Config      config.Service
 }
 
 func (c *ConfigEditCmd) Validate() error {
@@ -71,4 +71,3 @@ func (c *ConfigEditCmd) Run(ctx context.Context, streams IOStreams) error {
 	}
 	return nil
 }
-

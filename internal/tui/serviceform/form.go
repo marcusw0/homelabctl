@@ -128,9 +128,9 @@ func newModel(name string, cfg *config.Service) model {
 func fillFields(m model, cfg config.Service) model {
 	port := strconv.Itoa(cfg.Port)
 	for _, spec := range []struct {
-		id                 fieldID
+		id           fieldID
 		label, value string
-		advanced           bool
+		advanced     bool
 	}{
 		{fqdnField, "FQDN", cfg.FQDN, false},
 		{ipField, "IP", cfg.IP, false},
@@ -155,7 +155,7 @@ func fillFields(m model, cfg config.Service) model {
 		check.KindTLS,
 	} {
 		m.checks = append(m.checks, checkOption{
-			kind: kind,
+			kind:     kind,
 			selected: slices.Contains(selected, kind),
 		})
 	}
@@ -330,7 +330,7 @@ func (m model) submit() (config.Service, *fieldError) {
 
 var (
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D0F0C0"))
-	mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#77967D"))
+	mutedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#77967D"))
 )
 
 func (m model) View() tea.View {
