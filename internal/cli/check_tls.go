@@ -3,86 +3,37 @@ package cli
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-type TLSCheckCmd struct {
-	Target  string
-	Port    int
-	Timeout time.Duration
-	Verbose bool
-}
-
-func parseTLSCheck(
-	errOut io.Writer,
-	args []string,
-	opts GlobalOption,
-) (Command, error) {
-	cmd := &TLSCheckCmd{}
-
-	flags := flag.NewFlagSet("check tls", flag.ContinueOnError)
-	flags.SetOutput(errOut)
-	addGlobalFlags(flags, &opts)
-
-	flags.IntVar(
-		&cmd.Port,
-		"port",
-		443,
-		"set TLS port",
-	)
-
-	flags.DurationVar(
-		&cmd.Timeout,
-		"timeout",
-		3*time.Second,
-		"timeout duration",
-	)
-
-	if err := flags.Parse(args); err != nil {
-		return nil, err
+func runTLSCheck(
+	ctx context.Context,
+	request CheckRequest,
+	streams IOStreams,
+) error {
+	timeout := defaultTimeout
+	if request.Timeout != nil {
+		timeout = *request.Timeout
 	}
-	cmd.Verbose = opts.Verbose
-
-	if flags.NArg() == 1 {
-		cmd.Target = flags.Arg(0)
-	}
-
-	if flags.NArg() > 1 {
-		return nil, errors.New("check tls accepts only one argument")
-	}
-
-	return cmd, nil
-}
-
-func (c *TLSCheckCmd) Validate() error {
-	if c.Timeout <= 0 {
+	if timeout <= 0 {
 		return errors.New("timeout must be greater than 0")
 	}
 
-	if err := check.ValidatePort(c.Port); err != nil {
+	target, port, err := parseTLSTarget(request.Target)
+	if err != nil {
 		return err
 	}
 
-	if err := check.ValidateHostname(c.Target); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *TLSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
 	service := check.TLS{
-		Port:    c.Port,
-		Timeout: c.Timeout,
+		Port: port,
+		Timeout: timeout,
 	}
 
-	resp, respErr := service.Check(ctx, c.Target)
-	writeErr := writeTLSResponse(streams.Out, resp, c.Verbose)
+	resp, respErr := service.Check(ctx, target)
+	writeErr := writeTLSResponse(streams.Out, resp, request.Verbose)
 	if writeErr != nil {
 		return errors.Join(respErr, writeErr)
 	}

@@ -19,18 +19,13 @@ func main() {
 		ErrOut: os.Stderr,
 	}
 
-	parsed, err := cli.Parse(os.Args[1:], streams.ErrOut)
+	request, err := cli.Parse(os.Args[1:], streams.ErrOut)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return
 		}
 		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
 		os.Exit(2)
-	}
-
-	if err := parsed.Validate(); err != nil {
-		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
-		os.Exit(1)
 	}
 
 	ctx, cancel := signal.NotifyContext(
@@ -40,9 +35,8 @@ func main() {
 	)
 	defer cancel()
 
-	if err := parsed.Run(ctx, streams); err != nil {
+	if err := cli.Dispatch(ctx, request, streams); err != nil {
 		fmt.Fprintf(streams.ErrOut, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
-
 }

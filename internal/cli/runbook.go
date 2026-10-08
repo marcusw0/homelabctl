@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,20 +13,12 @@ import (
 	ui "github.com/marcusw0/homelabctl/internal/tui/runbook"
 )
 
-type RunbookCmd struct {
-	ConfigPath  string
-	RunbookPath string
-	ServiceName string
-	Style       string
-	Width       int
-}
-
 func parseRunbook(
 	errOut io.Writer,
 	args []string,
 	opts GlobalOption,
-) (Command, error) {
-	cmd := &RunbookCmd{}
+) (Request, error) {
+	cmd := RunbookRequest{}
 	flags := flag.NewFlagSet("runbook", flag.ContinueOnError)
 	flags.SetOutput(errOut)
 	addGlobalFlags(flags, &opts)
@@ -61,60 +52,59 @@ func parseRunbook(
 	)
 
 	if err := flags.Parse(args); err != nil {
-		return nil, err
+		return Request{}, err
 	}
 
 	args = flags.Args()
 
 	if len(args) != 1 {
-		return nil, errors.New("runbook accepts exactly one service argument")
+		return Request{},
+			errors.New(
+				"runbook accepts exactly one service argument",
+			)
 	}
 
 	cmd.ConfigPath = opts.ConfigPath
 	cmd.ServiceName = args[0]
 
-	return cmd, nil
-
+	return Request{
+		Kind:    CmdRunbook,
+		Runbook: cmd,
+	}, nil
 }
 
-func (c *RunbookCmd) Validate() error {
-	if c.Width <= 0 {
+func runRunbook(request RunbookRequest, streams IOStreams) error {
+	if request.Width <= 0 {
 		return errors.New("width must be a positive number")
 	}
 
-	if c.ServiceName == "" {
+	if request.ServiceName == "" {
 		return errors.New("service name cannot be blank")
 	}
 
-	cfg, err := config.Load(c.ConfigPath)
+	cfg, err := config.Load(request.ConfigPath)
 	if err != nil {
 		return err
 	}
 
-	service, exists := cfg.Services[c.ServiceName]
+	service, exists := cfg.Services[request.ServiceName]
 	if !exists {
 		return fmt.Errorf(
 			"service %q not found in %s",
-			c.ServiceName,
-			c.ConfigPath,
+			request.ServiceName,
+			request.ConfigPath,
 		)
 	}
 
 	if service.Runbook == "" {
-		return fmt.Errorf("no runbook path configured for %s", c.ServiceName)
+		return fmt.Errorf("no runbook path configured for %s", request.ServiceName)
 	}
 
-	c.RunbookPath = service.Runbook
-
-	return nil
-}
-
-func (c *RunbookCmd) Run(ctx context.Context, streams IOStreams) error {
-	runbook := c.RunbookPath
+	runbook := service.Runbook
 
 	if !filepath.IsAbs(runbook) {
 		runbook = filepath.Join(
-			filepath.Dir(c.ConfigPath),
+			filepath.Dir(request.ConfigPath),
 			runbook,
 		)
 	}
@@ -124,7 +114,7 @@ func (c *RunbookCmd) Run(ctx context.Context, streams IOStreams) error {
 		return fmt.Errorf("read runbook: %w", err)
 	}
 
-	render, err := markdown.Render(file, c.Width, c.Style)
+	render, err := markdown.Render(file, request.Width, request.Style)
 	if err != nil {
 		return err
 	}
@@ -134,6 +124,6 @@ func (c *RunbookCmd) Run(ctx context.Context, streams IOStreams) error {
 		streams.Out,
 		runbook,
 		string(render),
-		c.Style,
+		request.Style,
 	)
 }

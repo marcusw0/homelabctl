@@ -3,124 +3,52 @@ package cli
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
 )
 
-type ServiceCheckCmd struct {
-	configPath      string
-	serviceName     string
-	serviceCfg      config.Service
-	timeoutOverride *time.Duration
-	verbose         bool
-}
-
-func parseServiceCheck(
-	errOut io.Writer,
-	args []string,
-	opts GlobalOption,
-) (Command, error) {
-	cmd := &ServiceCheckCmd{}
-
-	flags := flag.NewFlagSet(
-		"check service",
-		flag.ContinueOnError,
-	)
-	flags.SetOutput(errOut)
-	addGlobalFlags(flags, &opts)
-
-	flags.Func(
-		"timeout",
-		"override configured timeout",
-		func(value string) error {
-			timeout, err := time.ParseDuration(value)
-			if err != nil {
-				return fmt.Errorf("invalid timeout: %w", err)
-			}
-
-			cmd.timeoutOverride = &timeout
-			return nil
-		},
-	)
-
-	if err := flags.Parse(args); err != nil {
-		return nil, err
-	}
-	if flags.NArg() != 1 {
-		return nil, errors.New(
-			"check service accepts exactly one service name",
-		)
+func runServiceCheck(
+	ctx context.Context,
+	request CheckRequest,
+	path string,
+	streams IOStreams,
+) error {
+	if request.Timeout != nil && *request.Timeout <= 0 {
+		return errors.New("timeout must be greater than 0")
 	}
 
-	cmd.configPath = opts.ConfigPath
-	cmd.serviceName = flags.Arg(0)
-	cmd.verbose = opts.Verbose
-
-	return cmd, nil
-}
-
-func (c *ServiceCheckCmd) Validate() error {
-	if c.timeoutOverride != nil && *c.timeoutOverride <= 0 {
-		return errors.New("timeout must be greater than zero")
-	}
-
-	cfg, err := config.Load(c.configPath)
+	cfg, err := config.Load(path)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	service, exists := cfg.Services[c.serviceName]
+	serviceCfg, exists := cfg.Services[request.Target]
 	if !exists {
 		return fmt.Errorf(
 			"service %q not found in %s",
-			c.serviceName,
-			c.configPath,
+			request.Target,
+			path,
 		)
 	}
-	if !service.Enabled {
-		return fmt.Errorf("service %q is disabled", c.serviceName)
+	if !serviceCfg.Enabled {
+		return fmt.Errorf("service %q is disabled", request.Target)
+	}
+	if request.Timeout != nil {
+		serviceCfg.Timeout = *request.Timeout
 	}
 
-	c.serviceCfg = service
-	return nil
-}
-
-func serviceFromConfig(service config.Service) check.Service {
-	return check.Service{
-		FQDN:            service.FQDN,
-		TCPHost:         service.EffectiveTCPHost(),
-		Port:            service.Port,
-		Timeout:         service.EffectiveTimeout(),
-		TLSWarnBefore:   service.EffectiveTLSWarnBefore(),
-		Checks:          service.EffectiveChecks(),
-		HTTPURL:         service.EffectiveHTTPURL(),
-		ExpectedStatus:  service.EffectiveStatusCode(),
-		FollowRedirects: service.EffectiveFollowRedirects(),
-	}
-}
-
-func (c *ServiceCheckCmd) Run(ctx context.Context, streams IOStreams) error {
-	service := serviceFromConfig(c.serviceCfg)
-
-	if c.timeoutOverride != nil {
-		service.Timeout = *c.timeoutOverride
-	}
+	service := serviceFromConfig(serviceCfg)
 
 	results, checkErr := service.Check(ctx)
-	if checkErr == nil && !results.Healthy() {
-		checkErr = fmt.Errorf("service %q is unhealthy", c.serviceName)
-	}
 	writeErr := writeService(
 		streams.Out,
 		results,
-		c.serviceName,
-		c.verbose,
+		request.Target,
+		request.Verbose,
 	)
 
 	return errors.Join(checkErr, ctx.Err(), writeErr)
@@ -173,4 +101,18 @@ func writeService(
 	fmt.Fprintf(&output, "Health: %s\n-----------\n", resp.TLS.Status)
 	_, err := io.WriteString(out, output.String())
 	return err
+}
+
+func serviceFromConfig(service config.Service) check.Service {
+	return check.Service{
+		FQDN:            service.FQDN,
+		TCPHost:         service.EffectiveTCPHost(),
+		Port:            service.Port,
+		Timeout:         service.EffectiveTimeout(),
+		TLSWarnBefore:   service.EffectiveTLSWarnBefore(),
+		Checks:          service.EffectiveChecks(),
+		HTTPURL:         service.EffectiveHTTPURL(),
+		ExpectedStatus:  service.EffectiveStatusCode(),
+		FollowRedirects: service.EffectiveFollowRedirects(),
+	}
 }

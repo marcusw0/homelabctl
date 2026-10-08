@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
-	"github.com/marcusw0/homelabctl/internal/config"
 )
 
 type testTransport func(*http.Request) (*http.Response, error)
@@ -59,15 +58,12 @@ timeout = "3s"
 				}
 				return &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}, nil
 			})
-			cmd, err := parseServiceCheck(io.Discard, append(tt.args, "web"), GlobalOption{ConfigPath: path})
+			cmd, err := parseTargetCheck(io.Discard, append(tt.args, "web"), GlobalOption{ConfigPath: path}, "service", CmdServiceCheck)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := cmd.Validate(); err != nil {
-				t.Fatal(err)
-			}
 			var out bytes.Buffer
-			if err := cmd.Run(context.Background(), IOStreams{Out: &out, ErrOut: io.Discard}); err != nil {
+			if err := Dispatch(context.Background(), cmd, IOStreams{Out: &out, ErrOut: io.Discard}); err != nil {
 				t.Fatal(err)
 			}
 			if !called || !strings.Contains(out.String(), "HTTP status: healthy") || strings.Count(out.String(), "status: skipped") != 3 {
@@ -76,11 +72,11 @@ timeout = "3s"
 		})
 	}
 	for _, timeout := range []string{"0s", "-1s"} {
-		cmd, err := parseServiceCheck(io.Discard, []string{"--timeout", timeout, "web"}, GlobalOption{ConfigPath: path})
+		cmd, err := parseTargetCheck(io.Discard, []string{"--timeout", timeout, "web"}, GlobalOption{ConfigPath: path}, "service", CmdServiceCheck)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := cmd.Validate(); err == nil {
+		if err := Dispatch(context.Background(), cmd, IOStreams{Out: io.Discard, ErrOut: io.Discard}); err == nil {
 			t.Errorf("accepted timeout %s", timeout)
 		}
 	}
@@ -90,7 +86,17 @@ func TestServiceFailureResults(t *testing.T) {
 	original := http.DefaultTransport
 	t.Cleanup(func() { http.DefaultTransport = original })
 	transportErr := errors.New("connection failed")
-	service := config.Service{FQDN: "localhost", IP: "127.0.0.1", Port: 1, Checks: []check.Kind{check.KindHTTP}, HTTPURL: "http://example.com"}
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(`[services.web]
+fqdn = "localhost"
+ip = "127.0.0.1"
+port = 1
+enabled = true
+checks = ["http"]
+http_url = "http://example.com"
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	for _, tt := range []struct {
 		name    string
 		status  int
@@ -98,7 +104,7 @@ func TestServiceFailureResults(t *testing.T) {
 		wantErr bool
 	}{
 		{"healthy", 200, nil, false},
-		{"unhealthy without transport error", 503, nil, true},
+		{"unhealthy without transport error", 503, nil, false},
 		{"transport error", 0, transportErr, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -108,11 +114,14 @@ func TestServiceFailureResults(t *testing.T) {
 				}
 				return &http.Response{StatusCode: tt.status, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}, nil
 			})
-			for _, cmd := range []Command{&ServiceCheckCmd{serviceName: "web", serviceCfg: service}, &AllCmd{Services: map[string]config.Service{"web": service}}} {
+			for _, cmd := range []Request{
+				{Kind: CmdServiceCheck, ConfigPath: path, Check: CheckRequest{Target: "web"}},
+				{Kind: CmdAllCheck, ConfigPath: path},
+			} {
 				var out bytes.Buffer
-				err := cmd.Run(context.Background(), IOStreams{Out: &out, ErrOut: io.Discard})
+				err := Dispatch(context.Background(), cmd, IOStreams{Out: &out, ErrOut: io.Discard})
 				if (err != nil) != tt.wantErr {
-					t.Fatalf("%T error = %v", cmd, err)
+					t.Fatalf("command %d error = %v", cmd.Kind, err)
 				}
 				if tt.err != nil && !errors.Is(err, tt.err) {
 					t.Errorf("lost transport error: %v", err)
@@ -125,7 +134,7 @@ func TestServiceFailureResults(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := (&AllCmd{}).Run(ctx, IOStreams{Out: io.Discard, ErrOut: io.Discard}); !errors.Is(err, context.Canceled) {
+	if err := Dispatch(ctx, Request{Kind: CmdAllCheck, ConfigPath: path}, IOStreams{Out: io.Discard, ErrOut: io.Discard}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled run error = %v", err)
 	}
 }

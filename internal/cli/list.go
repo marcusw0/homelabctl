@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,40 +11,32 @@ import (
 	"github.com/marcusw0/homelabctl/internal/config"
 )
 
-type ListCmd struct {
-	ConfigPath string
-}
-
 func parseList(
 	errOut io.Writer,
 	args []string,
 	opts GlobalOption,
-) (Command, error) {
+) (Request, error) {
 	flags := flag.NewFlagSet("list", flag.ContinueOnError)
 	flags.SetOutput(errOut)
 	addGlobalFlags(flags, &opts)
 
 	if err := flags.Parse(args); err != nil {
-		return nil, err
+		return Request{}, err
 	}
 	if flags.NArg() != 0 {
-		return nil, errors.New("list does not accept further arguments")
+		return Request{}, errors.New("list does not accept further arguments")
 	}
-
-	return &ListCmd{
+	return Request{
+		Kind:       CmdListConfig,
 		ConfigPath: opts.ConfigPath,
 	}, nil
 }
 
-func (c *ListCmd) Validate() error {
-	if c.ConfigPath == "" {
+func runList(path string, streams IOStreams) error {
+	if path == "" {
 		return errors.New("config path cannot be empty")
 	}
-	return nil
-}
-
-func (c *ListCmd) Run(ctx context.Context, streams IOStreams) error {
-	cfg, err := config.Load(c.ConfigPath)
+	cfg, err := config.Load(path)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}

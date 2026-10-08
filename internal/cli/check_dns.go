@@ -3,75 +3,34 @@ package cli
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 )
 
-type DNSCheckCmd struct {
-	Target  string
-	Timeout time.Duration
-	Verbose bool
-}
-
-func parseDNSCheck(
-	errOut io.Writer,
-	args []string,
-	opts GlobalOption,
-) (Command, error) {
-
-	cmd := &DNSCheckCmd{}
-
-	flags := flag.NewFlagSet("check dns", flag.ContinueOnError)
-	flags.SetOutput(errOut)
-	addGlobalFlags(flags, &opts)
-
-	flags.DurationVar(
-		&cmd.Timeout,
-		"timeout",
-		5*time.Second,
-		"timeout duration",
-	)
-
-	if err := flags.Parse(args); err != nil {
-		return nil, err
+func runDNSCheck(
+	ctx context.Context,
+	request CheckRequest,
+	streams IOStreams,
+) error {
+	timeout := defaultTimeout
+	if request.Timeout != nil {
+		timeout = *request.Timeout
 	}
-	cmd.Verbose = opts.Verbose
-
-	if flags.NArg() == 1 {
-		cmd.Target = flags.Arg(0)
-	}
-
-	if flags.NArg() > 1 {
-		return nil, errors.New("check dns accepts only one argument")
-	}
-
-	return cmd, nil
-}
-
-func (c *DNSCheckCmd) Validate() error {
-	if c.Timeout <= 0 {
+	if timeout <= 0 {
 		return errors.New("timeout must be greater than 0")
 	}
-
-	if err := check.ValidateHostname(c.Target); err != nil {
+	if err := check.ValidateHostname(request.Target); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (c *DNSCheckCmd) Run(ctx context.Context, streams IOStreams) error {
-	out := streams.Out
-	service := check.DNS{
-		Timeout: c.Timeout,
+	checkDNS := check.DNS{
+		Timeout: timeout,
 	}
 
-	resp, respErr := service.Check(ctx, c.Target)
-	writeErr := writeDNSResponse(out, resp, c.Verbose)
+	resp, respErr := checkDNS.Check(ctx, request.Target)
+	writeErr := writeDNSResponse(streams.Out, resp, request.Verbose)
 	if writeErr != nil {
 		return errors.Join(respErr, writeErr)
 	}
