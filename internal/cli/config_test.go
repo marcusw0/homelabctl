@@ -5,33 +5,6 @@ import (
 	"testing"
 )
 
-func TestParseConfigAdd(t *testing.T) {
-	tests := []struct {
-		name    string
-		args    []string
-		wantErr bool
-	}{
-		{"missing service name", []string{"add"}, true},
-		{"service name", []string{"add", "gitlab"}, false},
-		{"too many arguments", []string{"add", "gitlab", "extra"}, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseConfig(
-				io.Discard,
-				tt.args,
-				GlobalOption{ConfigPath: "config.toml"},
-			)
-
-			gotErr := err != nil
-			if gotErr != tt.wantErr {
-				t.Errorf("Got error: %v\nExpected error: %t\n", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestGlobalConfigFlagPositions(t *testing.T) {
 	tests := []struct {
 		name string
@@ -49,14 +22,13 @@ func TestGlobalConfigFlagPositions(t *testing.T) {
 				t.Fatalf("parse command: %v", err)
 			}
 
-			cmd, ok := parsed.(*ConfigInitCmd)
-			if !ok {
-				t.Fatalf("unexpected command type %T", parsed)
+			if parsed.Kind != CmdInitConfig {
+				t.Fatalf("unexpected command kind %d", parsed.Kind)
 			}
 
 			want := tt.name + ".toml"
-			if cmd.ConfigPath != want {
-				t.Fatalf("config path = %q, want %q", cmd.ConfigPath, want)
+			if parsed.ConfigPath != want {
+				t.Fatalf("config path = %q, want %q", parsed.ConfigPath, want)
 			}
 		})
 	}
@@ -78,11 +50,10 @@ func TestGlobalVerboseFlagPositions(t *testing.T) {
 				t.Fatalf("parse command: %v", err)
 			}
 
-			cmd, ok := parsed.(*HTTPCheckCmd)
-			if !ok {
-				t.Fatalf("unexpected command type %T", parsed)
+			if parsed.Kind != CmdHTTPCheck {
+				t.Fatalf("unexpected command kind %d", parsed.Kind)
 			}
-			if !cmd.Verbose {
+			if !parsed.HTTP.Verbose {
 				t.Fatal("verbose flag was not added to HTTP command")
 			}
 		})

@@ -1,33 +1,24 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/marcusw0/homelabctl/internal/config"
 )
 
-type ConfigInitCmd struct {
-	ConfigPath string
-}
-
-func (c *ConfigInitCmd) Validate() error {
-	if c.ConfigPath == "" {
+func runConfigInit(path string, streams IOStreams) error {
+	if path == "" {
 		return errors.New("config path cannot be empty")
 	}
-	return nil
-}
-
-func (c *ConfigInitCmd) Run(ctx context.Context, streams IOStreams) error {
-	if err := config.Initialize(c.ConfigPath); err != nil {
+	if err := config.Initialize(path); err != nil {
 		return err
 	}
 
 	if _, err := fmt.Fprintf(
 		streams.Out,
 		"config initialized at %s\n",
-		c.ConfigPath,
+		path,
 	); err != nil {
 		return err
 	}

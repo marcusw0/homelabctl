@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -9,50 +8,11 @@ import (
 	"github.com/marcusw0/homelabctl/internal/config"
 )
 
-type IOStreams struct {
-	In     io.Reader
-	Out    io.Writer
-	ErrOut io.Writer
-}
-
-type Command interface {
-	Validate() error
-	Run(context.Context, IOStreams) error
-}
-
-type GlobalOption struct {
-	ConfigPath string
-	Verbose    bool
-}
-
-func addGlobalFlags(flags *flag.FlagSet, opts *GlobalOption) {
-	flags.StringVar(
-		&opts.ConfigPath,
-		"config",
-		opts.ConfigPath,
-		"path to config file",
-	)
-
-	flags.BoolVar(
-		&opts.Verbose,
-		"v",
-		opts.Verbose,
-		"verbose output",
-	)
-
-	flags.BoolVar(
-		&opts.Verbose,
-		"verbose",
-		opts.Verbose,
-		"verbose output",
-	)
-}
-
-func Parse(args []string, errOut io.Writer) (Command, error) {
+func Parse(args []string, errOut io.Writer) (Request, error) {
 
 	cfgDir, err := config.DefaultPath()
 	if err != nil {
-		return nil, err
+		return Request{}, err
 	}
 	opts := GlobalOption{ConfigPath: cfgDir}
 
@@ -83,20 +43,23 @@ Global options:`)
 	}
 
 	if err := flags.Parse(args); err != nil {
-		return nil, err
+		return Request{}, err
 	}
-
 	args = flags.Args()
-
-	if len(args) == 0 {
+	if len(args) == 0 || args[0] == "help" {
 		flags.Usage()
-		return nil, flag.ErrHelp
+		return Request{}, flag.ErrHelp
 	}
 
+	return parseCommand(args, opts, errOut)
+}
+
+func parseCommand(
+	args []string,
+	opts GlobalOption,
+	errOut io.Writer,
+) (Request, error) {
 	switch args[0] {
-	case "help":
-		flags.Usage()
-		return nil, flag.ErrHelp
 	case "check":
 		return parseCheck(errOut, args[1:], opts)
 	case "config":
@@ -106,8 +69,11 @@ Global options:`)
 	case "runbook":
 		return parseRunbook(errOut, args[1:], opts)
 	case "dashboard":
-		return parseDashboard(errOut, args[1:], opts)
+		return Request{
+			Kind:       CmdDashboard,
+			ConfigPath: opts.ConfigPath,
+		}, nil
 	default:
-		return nil, fmt.Errorf("Unknown command: %q", args[0])
+		return Request{}, fmt.Errorf("Unknown command: %q", args[0])
 	}
 }

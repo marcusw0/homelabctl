@@ -1,48 +1,42 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"text/tabwriter"
 
 	"github.com/marcusw0/homelabctl/internal/config"
 	"github.com/marcusw0/homelabctl/internal/runner"
 )
 
-type AllCmd struct {
-	ConfigPath string
-	Services   map[string]config.Service
-}
-
-func (c *AllCmd) Validate() error {
-	cfg, err := config.Load(c.ConfigPath)
+func runAllCheck(ctx context.Context, path string, streams IOStreams) error {
+	cfg, err := config.Load(path)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	services := make(map[string]config.Service)
-	for name, service := range cfg.Services {
+	enabled := 0
+	for _, service := range cfg.Services {
 		if service.Enabled {
-			services[name] = service
+			enabled++
 		}
 	}
-	if len(services) == 0 {
+	if enabled == 0 {
 		return errors.New("no enabled services configured")
 	}
 
-	c.Services = services
-
-	return nil
-}
-
-func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 	const maxConcurrent = 5
 
-	jobs := make([]runner.Job, 0, len(c.Services))
+	jobs := make([]runner.Job, 0, enabled)
 
-	for name, service := range c.Services {
+	for name, service := range cfg.Services {
+		if !service.Enabled {
+			continue
+		}
 		s := serviceFromConfig(service)
 
 		jobs = append(jobs, runner.Job{
@@ -55,15 +49,13 @@ func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 		MaxConcurrent: maxConcurrent,
 	}
 
-	results := make(map[string]runner.Result)
+	results := make([]runner.Result, 0, len(jobs))
 	var errs []error
 
 	for result := range serviceRunner.Run(ctx, jobs) {
-		results[result.Name] = result
+		results = append(results, result)
 		if result.Err != nil {
 			errs = append(errs, fmt.Errorf("service %q: %w", result.Name, result.Err))
-		} else if !result.Checks.Healthy() {
-			errs = append(errs, fmt.Errorf("service %q is unhealthy", result.Name))
 		}
 	}
 
@@ -71,7 +63,11 @@ func (c *AllCmd) Run(ctx context.Context, streams IOStreams) error {
 	return errors.Join(errs...)
 }
 
-func writeAllResults(errOut io.Writer, out io.Writer, results map[string]runner.Result) error {
+func writeAllResults(errOut io.Writer, out io.Writer, results []runner.Result) error {
+	slices.SortFunc(results, func(a, b runner.Result) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
 	writer := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 	if _, err := fmt.Fprintln(
 		writer,
@@ -80,14 +76,14 @@ func writeAllResults(errOut io.Writer, out io.Writer, results map[string]runner.
 		return err
 	}
 
-	for k, v := range results {
+	for _, v := range results {
 		if v.Err != nil {
-			fmt.Fprintf(errOut, "[ERROR]%s returned: %v\n", k, v.Err)
+			fmt.Fprintf(errOut, "[ERROR]%s returned: %v\n", v.Name, v.Err)
 		}
 		if _, err := fmt.Fprintf(
 			writer,
 			"%s\t%s\t%s\t%s\t%s\n",
-			k,
+			v.Name,
 			v.Checks.HTTP.Status,
 			v.Checks.DNS.Status,
 			v.Checks.TCP.Status,
