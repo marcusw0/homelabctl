@@ -114,9 +114,11 @@ homelabctl check http --expect-status 204 --follow-redirects=false example.com
 homelabctl check tcp --timeout 3s 127.0.0.1:80
 homelabctl check tcp example.com:443
 homelabctl check tcp '[::1]:443'
-homelabctl check tls --timeout 2s --port 443 example.com
+homelabctl check tls --timeout 2s example.com:443
 homelabctl check dns example.com
 ```
+
+TLS checks default to port 443 when the target does not include a port.
 
 Check configured services:
 
@@ -126,7 +128,7 @@ homelabctl check service --timeout 10s myservice
 homelabctl check --all
 ```
 
-Configured service checks return a nonzero exit code if any selected check is unhealthy, encounters an error, or the run is canceled. Warnings and skipped checks do not cause failure.
+Configured service checks exit successfully even when a selected check is unhealthy. Errors and cancellation cause a nonzero exit code. Warnings and skipped checks do not cause failure.
 
 Use global configuration and output options:
 
