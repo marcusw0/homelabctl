@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"slices"
 
 	"github.com/marcusw0/homelabctl/internal/check"
 	"github.com/marcusw0/homelabctl/internal/config"
@@ -23,6 +24,7 @@ func runDashboard(ctx context.Context, path string) error {
 			checks[name] = serviceFromConfig(service)
 		}
 	}
+	slices.Sort(names)
 	if err := dashboard.Run(ctx, names, checks); err != nil {
 		return err
 	}
