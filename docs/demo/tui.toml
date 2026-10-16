@@ -1,0 +1,8 @@
+# Seed inventory for the isolated form and runbook recordings.
+[services.grafana]
+fqdn = "grafana.example.com"
+ip = "192.0.2.20"
+port = 443
+enabled = true
+checks = ["http", "tcp"]
+runbook = "grafana.md"

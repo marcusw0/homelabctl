@@ -1,6 +1,22 @@
 # Homelabctl
 
-`homelabctl` is a CLI tool for managing and checking homelab services. You can run individual HTTP, TCP, TLS, and DNS health checks or initialize a config file and add your services to it. You can also associate each service with a runbook, render its Markdown, and open it for editing. I am still developing new features and will be adding a TUI dashboard soon.
+`homelabctl` is a CLI tool for managing and checking homelab services.
+
+[Installation](#installation) · [Quick start](#quick-start) · [Usage](#usage)
+
+**Monitor services**
+
+<img src="docs/assets/dashboard.gif" alt="Homelabctl dashboard showing service health and details" width="720">
+
+**Manage your inventory**
+
+<img src="docs/assets/config.gif" alt="Adding and editing a service with the interactive config form" width="720">
+
+**View and edit runbooks**
+
+<img src="docs/assets/runbook.gif" alt="Scrolling a runbook, editing a recovery note, and reloading the viewer" width="720">
+
+You can also run individual HTTP, TCP, TLS, and DNS health checks.
 
 ## Current Features
 
@@ -11,9 +27,11 @@ The CLI currently supports:
 - TLS certificate validation and expiration reporting
 - DNS lookups
 - TOML-based service inventories
-- Creating, validating, adding, and listing configured services
+- Creating, validating, and listing service inventories
+- Interactive forms for adding and editing configured services
 - Combined HTTP, DNS, TCP, and TLS service checks
 - Checking all enabled services concurrently
+- TUI dashboard with automatic refresh and per-service check details
 - Verbose output with latency, timestamps, and protocol-specific details
 - Interactive Markdown runbook viewing with editor integration
 - Set custom width and styles with flags
@@ -137,6 +155,25 @@ homelabctl --config ./homelabctl.toml list
 homelabctl --verbose check service my-nas
 ```
 
+### Dashboard
+
+Monitor enabled services in an interactive dashboard:
+
+```bash
+homelabctl dashboard
+homelabctl --config ./homelabctl.toml dashboard
+```
+
+Services appear in alphabetical order. Checks run when the dashboard opens and refresh automatically 20 seconds after each batch finishes.
+
+Controls:
+
+- move: arrow keys or `j`/`k`
+- details: `enter` to view the selected service's check results
+- back: `esc` from the details page
+- table focus: `esc` from the dashboard
+- exit: `q` or `ctrl+c`
+
 ### Config
 
 Manage your toml config:
@@ -144,8 +181,11 @@ Manage your toml config:
 ```bash
 homelabctl config init
 homelabctl config add <service>
+homelabctl config edit <service>
 homelabctl list
 ```
+
+The `add` and `edit` commands open an interactive service form. Editing loads the service's existing settings.
 
 Example config:
 
